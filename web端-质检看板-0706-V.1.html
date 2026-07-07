@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>巡园通 · 数据看板</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#f0f0fb",
+                        "tertiary": "#943700",
+                        "on-secondary-fixed": "#121c28",
+                        "on-secondary-container": "#6B7280",
+                        "surface-dim": "#E2E8F0",
+                        "on-primary-fixed-variant": "#047857",
+                        "secondary-fixed": "#D1FAE5",
+                        "on-primary-fixed": "#064E3B",
+                        "on-tertiary-fixed": "#360f00",
+                        "outline-variant": "#E5E7EB",
+                        "surface-container-high": "#F1F5F9",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#10B981",
+                        "background": "#F8FAFC",
+                        "on-tertiary-container": "#ffede6",
+                        "tertiary-container": "#bc4800",
+                        "surface-container-highest": "#E2E8F0",
+                        "inverse-surface": "#1F2937",
+                        "surface": "#ffffff",
+                        "on-background": "#1F2937",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#F1F5F9",
+                        "error-container": "#FEF3C7",
+                        "surface-variant": "#F1F5F9",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "surface-bright": "#ffffff",
+                        "secondary-fixed-dim": "#bdc7d8",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "on-primary-container": "#ECFDF5",
+                        "secondary-container": "#F1F5F9",
+                        "primary-fixed": "#D1FAE5",
+                        "on-surface-variant": "#6B7280",
+                        "outline": "#6B7280",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed-variant": "#3e4755",
+                        "secondary": "#6B7280",
+                        "primary": "#10B981",
+                        "processing": "#3B82F6",
+                        "pending": "#F59E0B",
+                        "chart-purple": "#8B5CF6",
+                        "on-error-container": "#92400E",
+                        "on-tertiary": "#ffffff",
+                        "on-surface": "#1F2937",
+                        "surface-tint": "#10B981",
+                        "primary-fixed-dim": "#A7F3D0",
+                        "error": "#F59E0B",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-container": "#F1F5F9",
+                        "inverse-primary": "#6EE7B7",
+                        "rectified": "#10B981",
+                        "slow": "#F59E0B",
+                        "success": "#10B981"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "8px",
+                        "lg": "12px",
+                        "xl": "16px",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-page": "24px",
+                        "gutter-card": "24px",
+                        "padding-card": "24px",
+                        "base": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Noto Sans SC", "Inter", "sans-serif"],
+                        "body-md": ["Noto Sans SC", "Inter", "sans-serif"],
+                        "label-md": ["Noto Sans SC", "Inter", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #F8FAFC;
+            color: #1F2937;
+            overflow-x: hidden;
+        }
+        body.has-sidebar {
+            padding-left: 240px;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .card-shadow {
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        .progress-bar {
+            height: 6px;
+            border-radius: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #E5E7EB;
+            border-radius: 10px;
+        }
+        .db-container {
+            max-width: none !important;
+            width: 100% !important;
+        }
+
+        /* ====== 宽屏布局：网格系统 ====== */
+        /* 页面整体外边距容器：随视口自适应变宽，不再卡死在 1440px */
+        .dashboard-grid {
+            width: 100%;
+            max-width: 1920px;
+            margin: 0 auto;
+            padding: 24px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* 顶部导航内容区，与下方卡片区左右对齐 */
+        .db-nav-inner {
+            width: 100%;
+            max-width: 1920px;
+            margin: 0 auto;
+            padding: 0 24px;
+            box-sizing: border-box;
+        }
+
+        /* 每一行：用 CSS Grid 平均分配列宽 */
+        .layout-row {
+            width: 100%;
+            display: grid;
+            gap: 24px;
+        }
+        .layout-row--kpi {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .layout-row--half {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .layout-row--full {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .layout-card {
+            min-width: 0;
+        }
+
+        /* 响应式：窄屏时自动折行，避免挤压变形 */
+        @media (max-width: 1280px) {
+            .layout-row--kpi {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 768px) {
+            .layout-row--kpi,
+            .layout-row--half {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+<div class="page-shell db-container">
+<!-- Top AppBar (Desktop Filter Bar) -->
+<header class="bg-surface-container-lowest border-b border-outline-variant sticky top-0 z-50 w-full">
+<div class="db-nav-inner h-16 flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="analytics">analytics</span>
+<h1 class="font-headline-md text-headline-md">巡园通 · 数据看板</h1>
+</div>
+<div class="flex items-center gap-4">
+<nav class="flex bg-surface-container-low p-1 rounded-lg">
+<button class="px-4 py-1.5 text-body-md font-medium text-primary bg-surface-container-lowest rounded shadow-sm">今日</button>
+<button class="px-4 py-1.5 text-body-md font-medium text-on-surface-variant hover:text-primary transition-colors">本周</button>
+<button class="px-4 py-1.5 text-body-md font-medium text-on-surface-variant hover:text-primary transition-colors">本月</button>
+<button class="px-4 py-1.5 text-body-md font-medium text-on-surface-variant hover:text-primary transition-colors">自定义</button>
+</nav>
+<button class="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded font-medium hover:opacity-90 active:scale-95 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="ios_share">ios_share</span>
+<span class="text-body-md">导出数据</span>
+</button>
+</div>
+</div>
+</header>
+<main>
+<div class="dashboard-grid">
+<!-- KPI Cards Grid -->
+<section class="layout-row layout-row--kpi">
+<!-- Total Issues -->
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest p-padding-card rounded-xl card-shadow flex flex-col gap-2 border border-transparent hover:border-primary-fixed transition-colors">
+<span class="text-on-surface-variant text-body-md flex items-center gap-2">
+<span class="material-symbols-outlined text-outline" data-icon="list_alt">list_alt</span>
+                    问题总数
+                </span>
+<div class="flex items-baseline gap-2">
+<span class="text-[32px] font-bold text-on-surface leading-tight">28</span>
+<span class="text-label-md text-outline">件</span>
+</div>
+<div class="mt-2 text-label-md text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[14px]" data-icon="trending_down">trending_down</span>
+                    较昨日减少 12%
+                </div>
+</div>
+<!-- Pending -->
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest p-padding-card rounded-xl card-shadow flex flex-col gap-2 border border-transparent hover:border-primary-fixed transition-colors">
+<span class="text-on-surface-variant text-body-md flex items-center gap-2">
+<span class="material-symbols-outlined text-pending" data-icon="pending_actions">pending_actions</span>
+                    待处理
+                </span>
+<div class="flex items-baseline gap-2">
+<span class="text-[32px] font-bold text-pending leading-tight">6</span>
+<span class="text-label-md text-outline">件</span>
+</div>
+<div class="mt-2 px-2 py-0.5 bg-pending/10 text-pending rounded-full text-[12px] w-fit font-medium">
+                    急需响应
+                </div>
+</div>
+<!-- Rectified -->
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest p-padding-card rounded-xl card-shadow flex flex-col gap-2 border border-transparent hover:border-primary-fixed transition-colors">
+<span class="text-on-surface-variant text-body-md flex items-center gap-2">
+<span class="material-symbols-outlined text-rectified" data-icon="task_alt">task_alt</span>
+                    已整改
+                </span>
+<div class="flex items-baseline gap-2">
+<span class="text-[32px] font-bold text-rectified leading-tight">22</span>
+<span class="text-label-md text-outline">件</span>
+</div>
+<div class="mt-2 text-label-md text-outline flex items-center gap-1">
+                    整改率 <span class="text-rectified font-bold">78.5%</span>
+</div>
+</div>
+<!-- Efficiency -->
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest p-padding-card rounded-xl card-shadow flex flex-col gap-2 border border-transparent hover:border-primary-fixed transition-colors">
+<span class="text-on-surface-variant text-body-md flex items-center gap-2">
+<span class="material-symbols-outlined text-outline" data-icon="speed">speed</span>
+                    平均处理时效
+                </span>
+<div class="flex items-baseline gap-2">
+<span class="text-[32px] font-bold text-on-surface leading-tight">1.2</span>
+<span class="text-label-md text-outline">天</span>
+</div>
+<div class="mt-2 text-label-md text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-rectified text-[14px]" data-icon="expand_more">expand_more</span>
+                    优于全园平均水平
+                </div>
+</div>
+</section>
+<!-- First Row: Department Orders & Area Issues -->
+<section class="layout-row layout-row--half">
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest p-padding-card rounded-xl card-shadow">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-sm text-headline-sm flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                        部门工单排行
+                    </h2>
+<div class="flex items-center gap-4">
+<button class="text-primary text-body-md font-medium hover:underline flex items-center gap-1 rank-toggle-btn" data-list="dept-order-list" data-default="5" type="button">
+                    查看全部 <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+<span class="text-label-md text-outline">数据截止：2024-05-20 14:00</span>
+</div>
+</div>
+<div class="space-y-6" id="dept-order-list">
+<!-- Item 1 -->
+<div class="rank-item">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">安保部 (24)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 4</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 18</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 2</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 16%"></div>
+<div class="h-full bg-rectified" style="width: 75%"></div>
+<div class="h-full bg-chart-purple" style="width: 9%"></div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="rank-item">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">保洁部 (18)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 2</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 15</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 11%"></div>
+<div class="h-full bg-rectified" style="width: 83%"></div>
+<div class="h-full bg-chart-purple" style="width: 6%"></div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="rank-item">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">设备运维部 (12)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 5</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 6</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 41%"></div>
+<div class="h-full bg-rectified" style="width: 50%"></div>
+<div class="h-full bg-chart-purple" style="width: 9%"></div>
+</div>
+</div>
+<!-- Item 4-5 -->
+<div class="rank-item">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">绿化部 (11)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 1</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 9</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 9%"></div>
+<div class="h-full bg-rectified" style="width: 82%"></div>
+<div class="h-full bg-chart-purple" style="width: 9%"></div>
+</div>
+</div>
+<div class="rank-item">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">客服部 (10)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 2</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 7</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 20%"></div>
+<div class="h-full bg-rectified" style="width: 70%"></div>
+<div class="h-full bg-chart-purple" style="width: 10%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">演艺部 (9)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 1</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 7</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 11%"></div>
+<div class="h-full bg-rectified" style="width: 78%"></div>
+<div class="h-full bg-chart-purple" style="width: 11%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">餐饮部 (9)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 3</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 5</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 33%"></div>
+<div class="h-full bg-rectified" style="width: 56%"></div>
+<div class="h-full bg-chart-purple" style="width: 11%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">市场部 (8)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 1</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 6</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 12%"></div>
+<div class="h-full bg-rectified" style="width: 75%"></div>
+<div class="h-full bg-chart-purple" style="width: 13%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">工程部 (8)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 2</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 5</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 25%"></div>
+<div class="h-full bg-rectified" style="width: 62%"></div>
+<div class="h-full bg-chart-purple" style="width: 13%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">企划部 (7)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 1</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 5</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 14%"></div>
+<div class="h-full bg-rectified" style="width: 71%"></div>
+<div class="h-full bg-chart-purple" style="width: 15%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">质量管理部 (7)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 0</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 6</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 0%"></div>
+<div class="h-full bg-rectified" style="width: 86%"></div>
+<div class="h-full bg-chart-purple" style="width: 14%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">信息技术部 (6)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 1</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 4</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 17%"></div>
+<div class="h-full bg-rectified" style="width: 66%"></div>
+<div class="h-full bg-chart-purple" style="width: 17%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">财务部 (6)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 0</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 5</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 0%"></div>
+<div class="h-full bg-rectified" style="width: 83%"></div>
+<div class="h-full bg-chart-purple" style="width: 17%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">人事部 (5)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 1</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 3</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 20%"></div>
+<div class="h-full bg-rectified" style="width: 60%"></div>
+<div class="h-full bg-chart-purple" style="width: 20%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">采购部 (5)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 0</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 4</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 0%"></div>
+<div class="h-full bg-rectified" style="width: 80%"></div>
+<div class="h-full bg-chart-purple" style="width: 20%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">综合管理部 (4)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 0</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 3</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 1</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 0%"></div>
+<div class="h-full bg-rectified" style="width: 75%"></div>
+<div class="h-full bg-chart-purple" style="width: 25%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">安全监察部 (3)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 0</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 3</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 0</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 0%"></div>
+<div class="h-full bg-rectified" style="width: 100%"></div>
+<div class="h-full bg-chart-purple" style="width: 0%"></div>
+</div>
+</div>
+<div class="rank-item hidden">
+<div class="flex justify-between items-end mb-2">
+<span class="text-body-md font-medium text-on-surface">品牌宣传部 (2)</span>
+<div class="flex gap-4 text-label-md text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pending"></span>待处理 0</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rectified"></span>已整改 2</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-chart-purple"></span>不整改 0</span>
+</div>
+</div>
+<div class="progress-bar w-full bg-surface-container-low overflow-hidden flex">
+<div class="h-full bg-pending" style="width: 0%"></div>
+<div class="h-full bg-rectified" style="width: 100%"></div>
+<div class="h-full bg-chart-purple" style="width: 0%"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest p-padding-card rounded-xl card-shadow">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-sm text-headline-sm flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                    区域问题排行
+                </h2>
+<button class="text-primary text-body-md font-medium hover:underline flex items-center gap-1 rank-toggle-btn" data-list="area-rank-list" data-default="5" type="button">
+                    查看全部 <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<div class="space-y-5" id="area-rank-list">
+<div class="rank-item flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">主入口街区</span>
+<span class="font-bold text-on-surface">12</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 85%"></div>
+</div>
+</div>
+<div class="rank-item flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">室内剧场 A</span>
+<span class="font-bold text-on-surface">8</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 55%"></div>
+</div>
+</div>
+<div class="rank-item flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">儿童乐园</span>
+<span class="font-bold text-on-surface">7</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 48%"></div>
+</div>
+</div>
+<div class="rank-item flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">景观湖西岸</span>
+<span class="font-bold text-on-surface">5</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 35%"></div>
+</div>
+</div>
+<div class="rank-item flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">西区商业街</span>
+<span class="font-bold text-on-surface">3</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 20%"></div>
+</div>
+</div>
+<div class="rank-item hidden flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">东区停车场</span>
+<span class="font-bold text-on-surface">3</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 20%"></div>
+</div>
+</div>
+<div class="rank-item hidden flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">水上舞台</span>
+<span class="font-bold text-on-surface">2</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 14%"></div>
+</div>
+</div>
+<div class="rank-item hidden flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">民俗风情街</span>
+<span class="font-bold text-on-surface">2</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 14%"></div>
+</div>
+</div>
+<div class="rank-item hidden flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">宋城千古情剧场</span>
+<span class="font-bold text-on-surface">2</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 14%"></div>
+</div>
+</div>
+<div class="rank-item hidden flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">游客服务中心</span>
+<span class="font-bold text-on-surface">1</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 7%"></div>
+</div>
+</div>
+<div class="rank-item hidden flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">美食广场</span>
+<span class="font-bold text-on-surface">1</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 7%"></div>
+</div>
+</div>
+<div class="rank-item hidden flex flex-col gap-1.5">
+<div class="flex justify-between text-body-md">
+<span class="text-on-surface">文创纪念品店</span>
+<span class="font-bold text-on-surface">1</span>
+</div>
+<div class="progress-bar w-full bg-surface-container-low">
+<div class="h-full bg-primary rounded-lg" style="width: 7%"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Second Row: Timing & Summary -->
+<section class="layout-row layout-row--half">
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest p-padding-card rounded-xl card-shadow">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-sm text-headline-sm flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                    部门处理时效排行
+                </h2>
+<div class="flex items-center gap-2">
+<button class="hidden text-processing text-[12px] font-medium hover:underline" id="dept-time-sort-btn" type="button">按最慢排序 ↑</button>
+<button class="text-primary text-body-md font-medium hover:underline flex items-center gap-1 rank-toggle-btn" data-list="dept-time-list" data-default="5" type="button">
+                    查看全部 <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="space-y-4 transition-opacity duration-300" id="dept-time-list">
+<div class="rank-item grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="0.8">
+<span class="text-body-md text-on-surface-variant">保洁部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-primary flex items-center px-3 rounded-lg" style="width: 12%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">0.8h</span>
+</div>
+</div>
+<span class="text-label-md text-primary font-medium">极速</span>
+</div>
+<div class="rank-item grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="2.1">
+<span class="text-body-md text-on-surface-variant">安保部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-processing flex items-center px-3 rounded-lg" style="width: 32%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">2.1h</span>
+</div>
+</div>
+<span class="text-label-md text-processing font-medium">正常</span>
+</div>
+<div class="rank-item grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="3.0">
+<span class="text-body-md text-on-surface-variant">设备运维部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-pending flex items-center px-3 rounded-lg" style="width: 46%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">3.0h</span>
+</div>
+</div>
+<span class="text-label-md text-pending font-medium">较慢</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="1.2">
+<span class="text-body-md text-on-surface-variant">质量管理部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-primary flex items-center px-3 rounded-lg" style="width: 18%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">1.2h</span>
+</div>
+</div>
+<span class="text-label-md text-primary font-medium">极速</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="1.8">
+<span class="text-body-md text-on-surface-variant">绿化部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-processing flex items-center px-3 rounded-lg" style="width: 28%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">1.8h</span>
+</div>
+</div>
+<span class="text-label-md text-processing font-medium">较快</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="3.2">
+<span class="text-body-md text-on-surface-variant">客服部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-processing flex items-center px-3 rounded-lg" style="width: 50%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">3.2h</span>
+</div>
+</div>
+<span class="text-label-md text-processing font-medium">正常</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="3.5">
+<span class="text-body-md text-on-surface-variant">演艺部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-processing flex items-center px-3 rounded-lg" style="width: 55%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">3.5h</span>
+</div>
+</div>
+<span class="text-label-md text-processing font-medium">正常</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="3.7">
+<span class="text-body-md text-on-surface-variant">市场部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-processing flex items-center px-3 rounded-lg" style="width: 58%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">3.7h</span>
+</div>
+</div>
+<span class="text-label-md text-processing font-medium">正常</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="4.0">
+<span class="text-body-md text-on-surface-variant">餐饮部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-processing flex items-center px-3 rounded-lg" style="width: 62%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">4.0h</span>
+</div>
+</div>
+<span class="text-label-md text-processing font-medium">正常</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="4.4">
+<span class="text-body-md text-on-surface-variant">工程部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-processing flex items-center px-3 rounded-lg" style="width: 68%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">4.4h</span>
+</div>
+</div>
+<span class="text-label-md text-processing font-medium">正常</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="4.7">
+<span class="text-body-md text-on-surface-variant">财务部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-processing flex items-center px-3 rounded-lg" style="width: 72%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">4.7h</span>
+</div>
+</div>
+<span class="text-label-md text-processing font-medium">正常</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="5.1">
+<span class="text-body-md text-on-surface-variant">企划部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-pending flex items-center px-3 rounded-lg" style="width: 78%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">5.1h</span>
+</div>
+</div>
+<span class="text-label-md text-pending font-medium">较慢</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="5.4">
+<span class="text-body-md text-on-surface-variant">人事部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-pending flex items-center px-3 rounded-lg" style="width: 82%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">5.4h</span>
+</div>
+</div>
+<span class="text-label-md text-pending font-medium">较慢</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="5.6">
+<span class="text-body-md text-on-surface-variant">采购部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-pending flex items-center px-3 rounded-lg" style="width: 85%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">5.6h</span>
+</div>
+</div>
+<span class="text-label-md text-pending font-medium">较慢</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="5.8">
+<span class="text-body-md text-on-surface-variant">信息技术部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-pending flex items-center px-3 rounded-lg" style="width: 88%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">5.8h</span>
+</div>
+</div>
+<span class="text-label-md text-pending font-medium">较慢</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="6.1">
+<span class="text-body-md text-on-surface-variant">综合管理部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-pending flex items-center px-3 rounded-lg" style="width: 92%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">6.1h</span>
+</div>
+</div>
+<span class="text-label-md text-pending font-medium">较慢</span>
+</div>
+<div class="rank-item hidden grid grid-cols-[120px_1fr_60px] items-center gap-4" data-hours="6.5">
+<span class="text-body-md text-on-surface-variant">品牌宣传部</span>
+<div class="h-6 bg-surface-container-low rounded-lg overflow-hidden">
+<div class="h-full bg-pending flex items-center px-3 rounded-lg" style="width: 100%">
+<span class="text-white font-bold text-label-md whitespace-nowrap">6.5h</span>
+</div>
+</div>
+<span class="text-label-md text-pending font-medium">较慢</span>
+</div>
+</div>
+</div>
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest p-padding-card rounded-xl card-shadow">
+<h2 class="font-headline-sm text-headline-sm mb-6 flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                    工单状态概览
+                </h2>
+<div class="flex justify-center relative py-4">
+<div class="w-32 h-32 rounded-full border-[12px] border-rectified relative">
+<div class="absolute inset-0 border-[12px] border-processing border-t-transparent border-l-transparent rounded-full rotate-45"></div>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-headline-md leading-none text-on-surface">28</span>
+<span class="text-label-md text-outline">总数</span>
+</div>
+</div>
+</div>
+<div class="mt-6 space-y-3">
+<div class="flex justify-between items-center text-body-md">
+<span class="flex items-center gap-2 text-on-surface"><span class="w-2.5 h-2.5 bg-processing rounded-sm"></span>处理中</span>
+<span class="font-bold text-on-surface">6 <span class="text-label-md text-outline font-normal ml-1">21.4%</span></span>
+</div>
+<div class="flex justify-between items-center text-body-md">
+<span class="flex items-center gap-2 text-on-surface"><span class="w-2.5 h-2.5 bg-rectified rounded-sm"></span>已完成</span>
+<span class="font-bold text-on-surface">22 <span class="text-label-md text-outline font-normal ml-1">78.6%</span></span>
+</div>
+<div class="pt-3 border-t border-outline-variant flex justify-between items-center text-body-md">
+<span class="text-on-surface-variant">异常/超时</span>
+<span class="text-pending font-bold">2 <span class="text-label-md text-outline font-normal ml-1">7.1%</span></span>
+</div>
+</div>
+</div>
+</section>
+<!-- Third Row: Full Table -->
+<section class="layout-row layout-row--full">
+<div class="layout-card db-card min-w-0 bg-surface-container-lowest rounded-xl card-shadow overflow-hidden">
+<div class="px-padding-card py-4 flex justify-between items-center border-b border-outline-variant">
+<h2 class="font-headline-sm text-headline-sm flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                    质检人员工作统计
+                </h2>
+<button class="text-primary text-body-md font-medium hover:underline flex items-center gap-1">
+                    查看全部 <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<div class="w-full overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low text-on-surface-variant text-body-md font-medium">
+<tr>
+<th class="px-padding-card py-3 w-16">排名</th>
+<th class="px-padding-card py-3">质检人员</th>
+<th class="px-padding-card py-3">总发现问题数</th>
+<th class="px-padding-card py-3">有效工单数</th>
+<th class="px-padding-card py-3">不整改问题数</th>
+<th class="px-padding-card py-3">有效率</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant text-body-md">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-padding-card py-4"><span class="w-6 h-6 flex items-center justify-center bg-primary text-on-primary rounded-full text-label-md font-bold">1</span></td>
+<td class="px-padding-card py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-bold text-label-md">张</div>
+<span class="font-medium group-hover:text-primary transition-colors cursor-pointer text-on-surface">张伟</span>
+</td>
+<td class="px-padding-card py-4 font-bold text-on-surface">42</td>
+<td class="px-padding-card py-4 text-on-surface">40</td>
+<td class="px-padding-card py-4 text-outline">2</td>
+<td class="px-padding-card py-4"><span class="text-rectified font-bold">95.2%</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-padding-card py-4"><span class="w-6 h-6 flex items-center justify-center bg-processing text-on-primary rounded-full text-label-md font-bold">2</span></td>
+<td class="px-padding-card py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed text-processing flex items-center justify-center font-bold text-label-md">李</div>
+<span class="font-medium group-hover:text-primary transition-colors cursor-pointer text-on-surface">李娜</span>
+</td>
+<td class="px-padding-card py-4 font-bold text-on-surface">38</td>
+<td class="px-padding-card py-4 text-on-surface">35</td>
+<td class="px-padding-card py-4 text-outline">3</td>
+<td class="px-padding-card py-4"><span class="text-rectified font-bold">92.1%</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-padding-card py-4"><span class="w-6 h-6 flex items-center justify-center bg-pending text-on-primary rounded-full text-label-md font-bold">3</span></td>
+<td class="px-padding-card py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-error-container text-pending flex items-center justify-center font-bold text-label-md">王</div>
+<span class="font-medium group-hover:text-primary transition-colors cursor-pointer text-on-surface">王强</span>
+</td>
+<td class="px-padding-card py-4 font-bold text-on-surface">35</td>
+<td class="px-padding-card py-4 text-on-surface">31</td>
+<td class="px-padding-card py-4 text-outline">4</td>
+<td class="px-padding-card py-4"><span class="text-on-surface-variant font-bold">88.5%</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-padding-card py-4 font-bold text-outline">4</td>
+<td class="px-padding-card py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-label-md">赵</div>
+<span class="font-medium group-hover:text-primary transition-colors cursor-pointer text-on-surface">赵杰</span>
+</td>
+<td class="px-padding-card py-4 font-bold text-on-surface">29</td>
+<td class="px-padding-card py-4 text-on-surface">24</td>
+<td class="px-padding-card py-4 text-outline">5</td>
+<td class="px-padding-card py-4"><span class="text-on-surface-variant font-bold">82.7%</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-padding-card py-4 font-bold text-outline">5</td>
+<td class="px-padding-card py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-label-md">孙</div>
+<span class="font-medium group-hover:text-primary transition-colors cursor-pointer text-on-surface">孙丽</span>
+</td>
+<td class="px-padding-card py-4 font-bold text-on-surface">25</td>
+<td class="px-padding-card py-4 text-on-surface">20</td>
+<td class="px-padding-card py-4 text-outline">5</td>
+<td class="px-padding-card py-4"><span class="text-on-surface-variant font-bold">80.0%</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-padding-card py-4 font-bold text-outline">6</td>
+<td class="px-padding-card py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-label-md">周</div>
+<span class="font-medium group-hover:text-primary transition-colors cursor-pointer text-on-surface">周明</span>
+</td>
+<td class="px-padding-card py-4 font-bold text-on-surface">18</td>
+<td class="px-padding-card py-4 text-on-surface">12</td>
+<td class="px-padding-card py-4 text-outline">6</td>
+<td class="px-padding-card py-4"><span class="text-pending font-bold">66.6%</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<script>
+        // Micro-interaction for table rows
+        document.querySelectorAll('tbody .group').forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.classList.add('translate-x-1');
+            });
+            row.addEventListener('mouseleave', () => {
+                row.classList.remove('translate-x-1');
+            });
+        });
+
+        // Simple filter button toggle
+        const filterButtons = document.querySelectorAll('nav button');
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterButtons.forEach(b => {
+                    b.classList.remove('bg-surface-container-lowest', 'text-primary', 'shadow-sm');
+                    b.classList.add('text-on-surface-variant');
+                });
+                btn.classList.add('bg-surface-container-lowest', 'text-primary', 'shadow-sm');
+                btn.classList.remove('text-on-surface-variant');
+            });
+        });
+
+        // Rank list expand/collapse
+        document.querySelectorAll('.rank-toggle-btn').forEach(btn => {
+            if (btn.dataset.list === 'dept-time-list') return;
+
+            const listId = btn.dataset.list;
+            const defaultCount = parseInt(btn.dataset.default, 10);
+            const list = document.getElementById(listId);
+            const items = list.querySelectorAll('.rank-item');
+            let expanded = false;
+
+            btn.addEventListener('click', () => {
+                expanded = !expanded;
+                items.forEach((item, index) => {
+                    if (expanded || index < defaultCount) {
+                        item.classList.remove('hidden');
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                });
+                if (expanded) {
+                    list.classList.add('max-h-[360px]', 'overflow-y-auto', 'custom-scrollbar', 'pr-1');
+                    btn.innerHTML = '收起';
+                } else {
+                    list.classList.remove('max-h-[360px]', 'overflow-y-auto', 'custom-scrollbar', 'pr-1');
+                    btn.innerHTML = '查看全部 <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>';
+                }
+            });
+        });
+
+        // Department processing time ranking: expand/collapse + sort toggle
+        (function () {
+            const list = document.getElementById('dept-time-list');
+            const toggleBtn = document.querySelector('.rank-toggle-btn[data-list="dept-time-list"]');
+            const sortBtn = document.getElementById('dept-time-sort-btn');
+            const defaultCount = parseInt(toggleBtn.dataset.default, 10);
+            let expanded = false;
+            let sortOrder = 'fast';
+
+            function getItems() {
+                return Array.from(list.querySelectorAll('.rank-item'));
+            }
+
+            function getDeptName(item) {
+                return item.querySelector('.text-body-md').textContent.trim();
+            }
+
+            function getHours(item) {
+                return parseFloat(item.dataset.hours);
+            }
+
+            function sortItems(order) {
+                const items = getItems();
+                items.sort((a, b) => {
+                    const hourDiff = getHours(a) - getHours(b);
+                    if (hourDiff !== 0) {
+                        return order === 'slow' ? -hourDiff : hourDiff;
+                    }
+                    return getDeptName(a).localeCompare(getDeptName(b), 'zh-CN');
+                });
+                items.forEach(item => list.appendChild(item));
+            }
+
+            function updateVisibility() {
+                getItems().forEach((item, index) => {
+                    if (expanded || index < defaultCount) {
+                        item.classList.remove('hidden');
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                });
+            }
+
+            function resetFastFirstSort() {
+                sortOrder = 'fast';
+                sortItems('fast');
+                sortBtn.textContent = '按最慢排序 ↑';
+            }
+
+            function smoothReorder(callback) {
+                list.classList.add('opacity-60');
+                requestAnimationFrame(() => {
+                    callback();
+                    requestAnimationFrame(() => {
+                        list.classList.remove('opacity-60');
+                    });
+                });
+            }
+
+            toggleBtn.addEventListener('click', () => {
+                expanded = !expanded;
+                if (expanded) {
+                    resetFastFirstSort();
+                    updateVisibility();
+                    list.classList.add('max-h-[360px]', 'overflow-y-auto', 'custom-scrollbar', 'pr-1');
+                    toggleBtn.innerHTML = '收起';
+                    sortBtn.classList.remove('hidden');
+                } else {
+                    resetFastFirstSort();
+                    updateVisibility();
+                    list.classList.remove('max-h-[360px]', 'overflow-y-auto', 'custom-scrollbar', 'pr-1');
+                    toggleBtn.innerHTML = '查看全部 <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>';
+                    sortBtn.classList.add('hidden');
+                }
+            });
+
+            sortBtn.addEventListener('click', () => {
+                smoothReorder(() => {
+                    if (sortOrder === 'fast') {
+                        sortOrder = 'slow';
+                        sortItems('slow');
+                        sortBtn.textContent = '按最快排序 ↓';
+                    } else {
+                        sortOrder = 'fast';
+                        sortItems('fast');
+                        sortBtn.textContent = '按最慢排序 ↑';
+                    }
+                });
+            });
+
+            resetFastFirstSort();
+            updateVisibility();
+        })();
+    </script>
+</body></html>
