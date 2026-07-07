@@ -1,0 +1,3249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI景区巡检 · 质检人员原型</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #D8DCE5;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, "PingFang SC", sans-serif;
+  padding: 24px 16px;
+}
+@keyframes xytSpin {
+  to { transform: rotate(360deg); }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+// ── 颜色 & 字体 token ──────────────────────────────────────
+const C = {
+  brand:      '#1677FF',
+  brandSoft:  '#E8F3FF',
+  success:    '#07C160',
+  successSoft:'#F0FBF4',
+  danger:     '#FA5151',
+  dangerSoft: '#FEF2F1',
+  warn:       '#FF8F1F',
+  warnSoft:   '#FFF7E8',
+  text:       '#1A1A1A',
+  textSec:    '#555555',
+  textTer:    '#999999',
+  surface:    '#FFFFFF',
+  surfaceAlt: '#F5F6F8',
+  bg:         '#F5F6F8',
+  line:       '#EEEEEE',
+  lineStrong: '#D5D5D5',
+  graySoft:   '#F5F5F5',
+  gray:       '#999999',
+  iconGray:   '#8A8F99',
+};
+const MAIN_TAB_TOP_PAD = 76; // 主 Tab 页顶部留白,适配灵动岛/挖孔
+const FONT = '-apple-system, "PingFang SC", sans-serif';
+const MONO = 'ui-monospace, "SF Mono", Menlo, monospace';
+window.XYT = { c: C, font: FONT, mono: MONO };
+
+const STICKY_FOOTER_BORDER = '#F0F0F0';
+const STICKY_FOOTER_STYLE = {
+  flexShrink: 0,
+  background: '#fff',
+  borderTop: `0.5px solid ${STICKY_FOOTER_BORDER}`,
+  paddingTop: 16,
+  paddingLeft: 16,
+  paddingRight: 16,
+  paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+  boxSizing: 'border-box',
+};
+const SCROLL_PAD_STICKY_FOOTER = 80;
+const STICKY_PRIMARY_BTN = { width: '100%', height: 44, borderRadius: 8, border: 'none', fontFamily: FONT, boxSizing: 'border-box' };
+
+// ── 工单数据 ─────────────────────────────────────────────────
+const SCENIC_LABEL = '杭州景区';
+const PERSONNEL = {
+  '景文峰': { employeeId: '000254', homeDept: '采购部', defaultRole: '质检员' },
+  '李宛婷': { employeeId: '', homeDept: '商业管理部', defaultRole: '质检员' },
+  '周莉': { employeeId: '', homeDept: '商业管理部', defaultRole: '服务经理' },
+  '苏桢': { employeeId: '000495', homeDept: '人力资源部', defaultRole: '管理员' },
+  '张明': { employeeId: '', homeDept: '工程部', defaultRole: '接单人' },
+  '王丽': { employeeId: '', homeDept: '采购部', defaultRole: '接单人' },
+};
+function getPersonRecord(name) { return name ? PERSONNEL[name] : null; }
+function getPersonHomeDept(name) { return getPersonRecord(name)?.homeDept || ''; }
+function formatRoleDeptLine(roleTitle, personName) {
+  const role = roleTitle || getPersonRecord(personName)?.defaultRole || '';
+  const dept = personName ? getPersonHomeDept(personName) : '';
+  if (role && dept) return `${role} · ${dept}`;
+  if (role) return role;
+  if (dept) return dept;
+  return '—';
+}
+function formatPersonLevel1(name) { return name || '—'; }
+function formatPersonLevel2(name) {
+  if (!name || name === '—') return '—';
+  const dept = getPersonHomeDept(name);
+  return dept ? `${name} · ${dept}` : name;
+}
+function getTicketDiscoverer(ticket) { return ticket.discoverer || ticket.who || '—'; }
+function getTicketDiscovererDisplay(ticket) { return formatPersonLevel2(getTicketDiscoverer(ticket)); }
+const DUTY_QC_PROFILE = { name: '景文峰', avatar: '景', roleTitle: '质检员' };
+function getRoleIdentityLines(role) {
+  const name = role?.name || '';
+  return {
+    roleLine: formatRoleDeptLine(role?.roleTitle, name),
+    scenicLine: role?.scenic || SCENIC_LABEL,
+  };
+}
+
+const CURRENT_USER = { name: '景文峰', dept: '采购部', employeeId: '000254' };
+const TICKETS = [
+  { id: 'GD20260428001', desc: '千古情剧场B区第3排座椅螺丝松动', cat: '设施设备', dept: '工程部', urgent: '常规', status: '待处理', time: '2026-04-28 09:32', loc: '剧院', who: '景文峰', overdueDays: 0, needExpectedDate: true },
+  { id: 'GD20260428002', desc: '河坊街灯箱第5号不亮', cat: '设施设备', dept: '工程部', urgent: '常规', status: '待处理', time: '2026-04-28 10:15', loc: '街区', who: '景文峰', overdueDays: 2, needExpectedDate: true },
+  { id: 'GD20260427003', desc: '美食广场3号档口周边地面油污', cat: '卫生管理', dept: '商业管理部', urgent: '常规', status: '待处理', time: '2026-04-27 14:20', loc: '店铺', who: '李宛婷', overdueDays: 0, needExpectedDate: true },
+  { id: 'GD20260427004', desc: '宋城大道消防箱玻璃破损', cat: '安全管理', dept: '安全部', urgent: '立即处理', status: '待处理', time: '2026-04-22 11:05', loc: '街区', who: '景文峰', overdueDays: 1, needExpectedDate: true },
+  { id: 'GD20260426005', desc: '怪街入口处指示牌倾斜', cat: '设施设备', dept: '工程部', urgent: '常规', status: '已整改', time: '2026-04-26 08:40', loc: '街区', who: '周莉', overdueDays: 0,
+    detailDesc: '怪街入口处东侧，景区指示牌向游客方向倾斜约15度，底座固定螺丝松动，存在倒伏隐患。',
+    fixDesc: '已重新紧固底座螺丝，调整指示牌角度至垂直，现场验收合格。',
+    doneTime: '2026-04-27 16:20', resolveDays: 1 },
+  { id: 'GD20260425006', desc: '丽江恋歌剧场音响杂音', cat: '演出管理', dept: '剧场部', urgent: '常规', status: '已整改', time: '2026-04-20 16:30', loc: '剧院', who: '景文峰', overdueDays: 0,
+    detailDesc: '丽江恋歌剧场主音响区域，演出期间右声道持续出现电流杂音，影响观演体验。',
+    fixDesc: '更换损坏音频线缆，重新调试音控设备，现场试听正常。',
+    doneTime: '2026-04-29 09:15', resolveDays: 9 },
+  { id: 'GD20260424007', desc: '水街大榕树旁护栏生锈', cat: '设施设备', dept: '工程部', urgent: '常规', status: '不整改', time: '2026-04-15 09:10', loc: '街区', who: '苏桢', overdueDays: 0 },
+  { id: 'GD20260429008', desc: '采购库房货架标识牌脱落', cat: '设施设备', dept: '采购部', urgent: '常规', status: '待处理', time: '2026-04-29 08:20', loc: '后勤区', who: '张明', overdueDays: 0, needExpectedDate: false },
+  { id: 'GD20260429009', desc: '办公用品申领区地面潮湿', cat: '卫生管理', dept: '采购部', urgent: '常规', status: '已整改', time: '2026-04-28 15:45', loc: '后勤区', who: '王丽', overdueDays: 0,
+    detailDesc: '后勤区办公用品申领区地面持续潮湿，附近无可见漏水点，疑似通风不足导致。',
+    fixDesc: '加设除湿设备并清理排水沟，地面已恢复干燥。',
+    doneTime: '2026-04-29 11:30', resolveDays: 1 },
+  { id: 'GD20260429010', desc: '供应商资料柜门锁损坏', cat: '设施设备', dept: '采购部', urgent: '常规', status: '待处理', time: '2026-04-28 11:30', loc: '后勤区', who: '景文峰', overdueDays: 1, needExpectedDate: true, expectedDate: '2026-05-02', expectedNote: '配件已申购，预计5月2日到货后完成' },
+];
+window.DATA = { tickets: TICKETS, today: '2026-04-29 周二', currentUser: CURRENT_USER };
+const PROTOTYPE_TODAY = '2026-04-29';
+function elapsedDaysSince(timeStr) {
+  const start = new Date(timeStr.slice(0, 10));
+  const end = new Date(PROTOTYPE_TODAY);
+  return Math.max(0, Math.floor((end - start) / 86400000));
+}
+const TICKET_LIST_MONTH_DAYS = 30;
+const TICKET_LIST_WEEK_DAYS = 7;
+const TIME_RANGE_OPTIONS = ['今日', '近一周', '近一月', '全部'];
+function isTicketInTimeRange(t, timeRange) {
+  if (timeRange === '全部') return true;
+  if (timeRange === '今日') return String(t.time).startsWith(PROTOTYPE_TODAY);
+  if (timeRange === '近一周') return elapsedDaysSince(t.time) <= TICKET_LIST_WEEK_DAYS;
+  if (timeRange === '近一月') return elapsedDaysSince(t.time) <= TICKET_LIST_MONTH_DAYS;
+  return true;
+}
+function isTicketInListScope(t, statusFilter) {
+  if (statusFilter === '待处理' || statusFilter === '不整改') return true;
+  if (t.status === '待处理' || t.status === '不整改') return true;
+  return elapsedDaysSince(t.time) <= TICKET_LIST_MONTH_DAYS;
+}
+function isTicketInListStatsScope(t) {
+  return t.status === '待处理' || t.status === '不整改' || elapsedDaysSince(t.time) <= TICKET_LIST_MONTH_DAYS;
+}
+function isExpectedDateMissing(t) {
+  return t.status === '待处理' && t.needExpectedDate === true && !t.expectedDate;
+}
+function getTicketDetailDesc(t) {
+  if (t.detailDesc) return t.detailDesc;
+  const loc = t.loc ? `${t.loc}，` : '';
+  return `${loc}${t.desc || '未填写问题描述'}`;
+}
+function getTicketResolveDays(t) {
+  if (t.resolveDays != null) return t.resolveDays;
+  if (t.doneTime) {
+    const start = new Date(t.time.slice(0, 10));
+    const end = new Date(String(t.doneTime).slice(0, 10));
+    return Math.max(1, Math.floor((end - start) / 86400000));
+  }
+  return elapsedDaysSince(t.time);
+}
+const URGENT_IMMEDIATE_RED = '#FF3B30';
+const DETAINED_ALERT_RED = '#E53E3E';
+function isTicketDetainedAlert(status, days) {
+  return status === '待处理' && days >= 7;
+}
+function parseTicketTimeMs(timeStr) {
+  return new Date(String(timeStr || '').replace(' ', 'T')).getTime() || 0;
+}
+function getPendingSortTier(t) {
+  if (t.urgent === '立即处理' && (t.status === '待处理' || t.status === '不整改申请中')) return 0;
+  if (t.status === '待处理') return elapsedDaysSince(t.time) >= 7 ? 1 : 2;
+  return 2;
+}
+function sortTicketsForList(list, statusFilter) {
+  const items = [...list];
+  if (statusFilter === '待处理') {
+    return items.sort((a, b) => {
+      const tierDiff = getPendingSortTier(a) - getPendingSortTier(b);
+      if (tierDiff !== 0) return tierDiff;
+      return elapsedDaysSince(b.time) - elapsedDaysSince(a.time);
+    });
+  }
+  if (statusFilter === '已整改') {
+    return items.sort((a, b) => parseTicketTimeMs(b.doneTime || b.time) - parseTicketTimeMs(a.doneTime || a.time));
+  }
+  if (statusFilter === '不整改') {
+    return items.sort((a, b) => parseTicketTimeMs(b.auditTime || b.time) - parseTicketTimeMs(a.auditTime || a.time));
+  }
+  return items.sort((a, b) => parseTicketTimeMs(b.time) - parseTicketTimeMs(a.time));
+}
+function createTicketsListState(scopeTab = '我部门的', overrides = {}) {
+  return { scopeTab, statusFilter: '全部', timeRange: '全部', q: '', scrollTop: 0, deptFilter: null, ...overrides };
+}
+function createMyTicketsListState(scopeTab = '待我处理') {
+  return { scopeTab, statusFilter: '全部', timeRange: '全部', q: '', scrollTop: 0 };
+}
+function createDashboardState() {
+  return { timeRange: '今日', deptExpanded: false, areaExpanded: false, efficiencyExpanded: false, scrollTop: 0 };
+}
+function createAuditListState(tab = 'pending') {
+  return { tab, scrollTop: 0 };
+}
+function createNotificationsListState() {
+  return { filter: '全部', expandedId: null, scrollTop: 0 };
+}
+
+function notificationDaysSince(n) {
+  if (n.date) {
+    const start = new Date(n.date.slice(0, 10));
+    const end = new Date(PROTOTYPE_TODAY);
+    return Math.max(0, Math.floor((end - start) / 86400000));
+  }
+  if (n.group === '今天') return 0;
+  if (n.group === '昨天') return 1;
+  const m = String(n.time || '').match(/^(\d{2})-(\d{2})/);
+  if (m) {
+    const start = new Date(`2026-${m[1]}-${m[2]}`);
+    const end = new Date(PROTOTYPE_TODAY);
+    return Math.max(0, Math.floor((end - start) / 86400000));
+  }
+  return 0;
+}
+function isNotificationInRecentMonth(n) {
+  return notificationDaysSince(n) <= TICKET_LIST_MONTH_DAYS;
+}
+
+const SWIPE_DELETE_WIDTH = 72;
+
+function SwipeableNotificationRow({ onDelete, onClick, isLast, children }) {
+  const [offsetX, setOffsetX] = React.useState(0);
+  const [dragging, setDragging] = React.useState(false);
+  const startX = React.useRef(0);
+  const startOffset = React.useRef(0);
+  const offsetRef = React.useRef(0);
+  const moved = React.useRef(false);
+
+  const applyOffset = (x) => {
+    const v = Math.min(0, Math.max(-SWIPE_DELETE_WIDTH, x));
+    offsetRef.current = v;
+    setOffsetX(v);
+  };
+
+  const onStart = (clientX) => {
+    startX.current = clientX;
+    startOffset.current = offsetRef.current;
+    moved.current = false;
+    setDragging(true);
+  };
+  const onMove = (clientX) => {
+    if (!dragging) return;
+    const dx = clientX - startX.current;
+    if (Math.abs(dx) > 4) moved.current = true;
+    applyOffset(startOffset.current + dx);
+  };
+  const onEnd = () => {
+    if (!dragging) return;
+    setDragging(false);
+    if (offsetRef.current <= -SWIPE_DELETE_WIDTH / 2) {
+      onDelete();
+    } else {
+      applyOffset(0);
+    }
+  };
+
+  React.useEffect(() => {
+    if (!dragging) return;
+    const onMouseMove = (e) => onMove(e.clientX);
+    const onMouseUp = () => onEnd();
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [dragging]);
+
+  const handleContentClick = () => {
+    if (moved.current || offsetRef.current < -8) return;
+    onClick && onClick();
+  };
+
+  return (
+    <div style={{ position: 'relative', overflow: 'hidden', borderBottom: isLast ? 'none' : `0.5px solid ${C.line}` }}>
+      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{
+        position: 'absolute', right: 0, top: 0, bottom: 0, width: SWIPE_DELETE_WIDTH,
+        background: C.danger, color: '#fff', border: 'none', fontSize: 14, fontWeight: 500,
+        cursor: 'pointer', fontFamily: FONT,
+      }}>删除</button>
+      <div
+        onClick={handleContentClick}
+        onTouchStart={(e) => onStart(e.touches[0].clientX)}
+        onTouchMove={(e) => onMove(e.touches[0].clientX)}
+        onTouchEnd={onEnd}
+        onMouseDown={(e) => onStart(e.clientX)}
+        style={{
+          transform: `translateX(${offsetX}px)`,
+          transition: dragging ? 'none' : 'transform 0.2s ease',
+          background: C.surface,
+          cursor: 'pointer',
+          touchAction: 'pan-y',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const NOTIFICATIONS = [
+  { id: 'n2', group: '今天', date: '2026-04-29', unread: true, type: 'detained', ticketId: 'GD20260427004', title: '工单「宋城大道消防箱玻璃破损」', sub: '已滞留7天，请尽快处理', time: '09:15', detained: true },
+  { id: 'n3', group: '今天', date: '2026-04-29', unread: true, type: 'system', title: '明日值班提醒', sub: '你已被排班4月30日(周三)值班', time: '08:00', detail: '值班时段 09:00–闭园，请提前完成必查项并关注部门待处理工单。' },
+  { id: 'n7', group: '今天', date: '2026-04-29', unread: false, type: 'system', title: '任务未完成提醒', sub: '今日还有 7 项必查未完成，请尽快处理', time: '07:30', detail: '闭园前请完成「闭园安全检查」等剩余必查项，避免影响今日完成率。' },
+  { id: 'n5', group: '昨天', date: '2026-04-28', unread: false, type: 'system', title: '5月排班表已发布', sub: '请在巡检日历中查看', time: '11:20', detail: '5月全月排班已更新，含五一假期调休安排，请在我的 → 巡检日历中确认。' },
+  { id: 'n8', group: '昨天', date: '2026-04-28', unread: false, type: 'system', ticketId: 'GD20260429010', title: '预计完成时间填写提醒', sub: '工单「丽江恋歌剧场音响杂音」需填写预计完成时间', time: '15:20' },
+  { id: 'n6', group: '更早', date: '2026-04-26', unread: false, type: 'system', ticketId: 'GD20260424007', title: '工单「护栏生锈」不整改申请', sub: '已被景区负责人审批通过', time: '04-26 14:30' },
+];
+
+// 非标问题示例库：易误报的非问题（现场快速对照，无需上报）
+const EXAMPLE_CATS = ['环境设施', '安全消防', '演出相关'];
+const EXAMPLE_ITEMS = [
+  { id: 'ns1', cat: '环境设施', title: '古建筑墙面斑驳脱落', misjudgment: '外立面破损', reality: '做旧工艺效果，属于设计本身如此', tips: '表面均匀斑驳、无结构性裂缝、周边同类建筑一致', hasCompare: true },
+  { id: 'ns2', cat: '环境设施', title: '水街地面潮湿有水渍', misjudgment: '地面积水', reality: '水景装置正常溅水，特定区域常态潮湿', tips: '仅在水景3米范围内，非排水故障导致', hasCompare: true },
+  { id: 'ns3', cat: '环境设施', title: '景区绿植季节性枯黄', misjudgment: '绿化枯死需更换', reality: '冬季/换季正常休眠表现，春季会返青', tips: '枝干仍柔韧、根部土壤湿润，同片区多数同类植株一致', hasCompare: true },
+  { id: 'ns4', cat: '安全消防', title: '消防箱玻璃上有手印和灰尘', misjudgment: '消防箱破损', reality: '仅表面灰尘，玻璃完好，不影响取用', tips: '玻璃无裂纹、器材可正常开启取用即为正常', hasCompare: true },
+  { id: 'ns5', cat: '安全消防', title: '灭火器压力表指针偏黄区', misjudgment: '灭火器失效', reality: '黄区为正常可用范围，绿区偏满亦常见', tips: '指针在绿区或黄区、检验标签在有效期内即可', hasCompare: true },
+  { id: 'ns6', cat: '安全消防', title: '疏散指示灯光线偏暗', misjudgment: '应急照明故障', reality: '白天环境光下观感偏暗，夜间测试亮度正常', tips: '夜间或遮挡环境光后仍清晰可见即正常', hasCompare: false },
+  { id: 'ns7', cat: '演出相关', title: '演员表演中途短暂停顿', misjudgment: '表演失误', reality: '剧本设计的戏剧停顿，属于正常编排', tips: '停顿时长<5秒且其他演员无异常反应', hasCompare: false },
+  { id: 'ns8', cat: '演出相关', title: '舞台烟雾偶尔偏浓', misjudgment: '舞台安全隐患', reality: '干冰/烟机效果设计，浓度在可控范围', tips: '演员走位不受影响、观众区无刺激异味投诉', hasCompare: false },
+];
+
+// ═══════════════════════════════════════════════════════════
+// ── 通用组件 ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function Tag({ label, kind }) {
+  const map = {
+    '待处理':   { c: '#8A6B12', bg: '#FFF8E6' },
+    '已整改':   { c: '#2A6B45', bg: '#EDF7F0' },
+    '不整改':   { c: '#666666', bg: '#F5F5F5' },
+    '不整改申请中': { c: '#8A6B12', bg: '#FFF8E6' },
+    '立即处理': { c: C.danger,  bg: C.dangerSoft },
+    '常规':     { c: '#666666', bg: '#F5F5F5' },
+    '必查':     { c: '#666666', bg: '#F5F5F5' },
+    '抽查':     { c: '#8A6B12', bg: '#FFF8E6' },
+  };
+  const s = map[label] || (kind === '必查' ? { c: '#666666', bg: '#F5F5F5' } : { c: '#666666', bg: '#F5F5F5' });
+  return (
+    <span style={{
+      fontSize: 11, padding: '2px 8px', borderRadius: 4,
+      color: s.c, background: s.bg, whiteSpace: 'nowrap', fontWeight: 500,
+    }}>{label}</span>
+  );
+}
+
+function Hairline({ inset = 0 }) {
+  return <div style={{ height: 0.5, background: C.line, marginLeft: inset }}/>;
+}
+
+function Placeholder({ label, h = 100 }) {
+  return (
+    <div style={{
+      width: '100%', height: h, borderRadius: 8,
+      background: 'repeating-linear-gradient(45deg, #F2F3F5 0 8px, #FAFAFB 8px 16px)',
+      border: `0.5px solid ${C.line}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 12, color: C.textTer, fontFamily: MONO,
+    }}>{label}</div>
+  );
+}
+
+function TopBar({ title, onBack, right }) {
+  return (
+    <div style={{
+      height: 44, paddingTop: 50, background: C.surface, display: 'flex', alignItems: 'center',
+      justifyContent: 'space-between', padding: '50px 16px 0',
+      boxSizing: 'content-box',
+      borderBottom: `0.5px solid ${C.line}`, flexShrink: 0,
+    }}>
+      <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', width: 70 }}>
+        <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
+          <path d="M7 1L1 7l6 6" stroke={C.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span style={{ fontSize: 15, color: C.brand }}>返回</span>
+      </div>
+      <span style={{ fontSize: 17, fontWeight: 600, color: C.text }}>{title}</span>
+      <div style={{ width: 70, display: 'flex', justifyContent: 'flex-end' }}>{right}</div>
+    </div>
+  );
+}
+
+function BottomTabs({ active, onChange, badges = {} }) {
+  const tabs = [
+    { id: 'home',    label: '首页',
+      icon: (a) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M3 11L12 3l9 8v10a1 1 0 01-1 1H15v-6H9v6H4a1 1 0 01-1-1V11z"
+          stroke={a ? C.brand : C.gray} strokeWidth="1.6" fill={a ? C.brandSoft : 'none'}/>
+      </svg>
+    },
+    { id: 'tickets', label: '工单',
+      icon: (a) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <rect x="4" y="3" width="16" height="18" rx="2" stroke={a ? C.brand : C.gray} strokeWidth="1.6" fill={a ? C.brandSoft : 'none'}/>
+        <line x1="8" y1="8" x2="16" y2="8" stroke={a ? C.brand : C.gray} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="8" y1="12" x2="16" y2="12" stroke={a ? C.brand : C.gray} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="8" y1="16" x2="13" y2="16" stroke={a ? C.brand : C.gray} strokeWidth="1.4" strokeLinecap="round"/>
+      </svg>
+    },
+    { id: 'dashboard', label: '数据',
+      icon: (a) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <line x1="4" y1="20" x2="20" y2="20" stroke={a ? C.brand : C.gray} strokeWidth="1.6" strokeLinecap="round"/>
+        <rect x="5" y="13" width="4" height="7" rx="1" stroke={a ? C.brand : C.gray} strokeWidth="1.6" fill={a ? C.brandSoft : 'none'}/>
+        <rect x="10" y="9" width="4" height="11" rx="1" stroke={a ? C.brand : C.gray} strokeWidth="1.6" fill={a ? C.brandSoft : 'none'}/>
+        <rect x="15" y="5" width="4" height="15" rx="1" stroke={a ? C.brand : C.gray} strokeWidth="1.6" fill={a ? C.brandSoft : 'none'}/>
+      </svg>
+    },
+    { id: 'me',      label: '我的',
+      icon: (a) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="8" r="4" stroke={a ? C.brand : C.gray} strokeWidth="1.6" fill={a ? C.brandSoft : 'none'}/>
+        <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke={a ? C.brand : C.gray} strokeWidth="1.6" strokeLinecap="round"/>
+      </svg>
+    },
+  ];
+  return (
+    <div style={{
+      height: 56, background: C.surface, borderTop: `0.5px solid ${C.line}`,
+      display: 'flex', alignItems: 'center', flexShrink: 0,
+    }}>
+      {tabs.map(t => {
+        const a = active === t.id;
+        const badge = badges[t.id];
+        return (
+          <div key={t.id} onClick={() => onChange(t.id)} style={{
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: 3, height: '100%', cursor: 'pointer', position: 'relative',
+          }}>
+            <div style={{ position: 'relative' }}>
+              {t.icon(a)}
+              {badge > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -8,
+                  minWidth: 16, height: 16, padding: '0 4px',
+                  background: C.danger, color: '#fff', fontSize: 10, fontWeight: 600,
+                  borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{badge}</span>
+              )}
+            </div>
+            <span style={{ fontSize: 10, color: a ? C.brand : C.gray }}>{t.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Spinner({ color }) {
+  return (
+    <div style={{
+      width: 14, height: 14, borderRadius: 7,
+      border: `1.5px solid ${color}40`, borderTopColor: color,
+      animation: 'xytSpin 0.8s linear infinite', flexShrink: 0,
+    }}/>
+  );
+}
+
+function FieldRow({ label, value, aiFilled, placeholder, gps, onClick, badge, compact }) {
+  return (
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', minHeight: compact ? 44 : 52, padding: compact ? '0 12px' : '0 16px',
+      cursor: onClick ? 'pointer' : 'default',
+    }}>
+      <div style={{ width: compact ? 68 : 76, fontSize: compact ? 13 : 14, color: C.textSec, flexShrink: 0 }}>{label}</div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{
+          display: 'inline-block', padding: '4px 10px', fontSize: compact ? 12 : 13, fontWeight: 500,
+          color: placeholder ? C.textTer : (aiFilled ? C.brand : C.text),
+          background: placeholder ? 'transparent' : (aiFilled ? C.brandSoft : C.graySoft),
+          borderRadius: 4,
+        }}>{value}</span>
+        {badge && (
+          <span style={{
+            fontSize: 11, padding: '2px 6px', borderRadius: 3,
+            color: badge === '待确认' ? C.warn : badge === '自动识别' ? C.success : C.brand,
+            background: badge === '待确认' ? C.warnSoft : badge === '自动识别' ? C.successSoft : C.brandSoft,
+          }}>{badge}</span>
+        )}
+        {gps && <span style={{ fontSize: 11, color: C.textTer }}>GPS 已获取</span>}
+      </div>
+      {onClick && (
+        <svg width="6" height="11" viewBox="0 0 6 11" fill="none">
+          <path d="M1 1l4 4.5L1 10" stroke={C.textTer} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function BottomSheet({ title, children, onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200,
+      display: 'flex', alignItems: 'flex-end',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxHeight: '65%', background: C.surface,
+        borderTopLeftRadius: 16, borderTopRightRadius: 16,
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{
+          padding: '16px 16px 12px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          borderBottom: `0.5px solid ${C.line}`,
+        }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: C.text }}>{title}</div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 14, color: C.textSec, fontFamily: FONT,
+          }}>取消</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── iPhone 外壳 ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+function Phone({ children, label }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+      {label && <div style={{ fontSize: 12, color: '#aaa', fontWeight: 500 }}>{label}</div>}
+      <div style={{
+        width: 375, height: 812, borderRadius: 50, overflow: 'hidden',
+        position: 'relative', background: '#1A1A1A',
+        boxShadow: '0 0 0 8px #2A2A2A, 0 0 0 9px #3A3A3A, 0 30px 80px rgba(0,0,0,0.5)',
+        flexShrink: 0,
+      }}>
+        {/* 灵动岛 */}
+        <div style={{
+          position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
+          width: 120, height: 34, borderRadius: 20, background: '#000', zIndex: 50,
+        }}/>
+        {/* 状态栏 */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 40,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 24px 0', height: 59,
+        }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>9:41</span>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <svg width="17" height="12" viewBox="0 0 19 12" fill="none">
+              <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill="#fff"/>
+              <rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill="#fff"/>
+              <rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill="#fff"/>
+              <rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill="#fff"/>
+            </svg>
+            <svg width="15" height="11" viewBox="0 0 17 12" fill="none">
+              <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill="#fff"/>
+              <path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill="#fff"/>
+              <circle cx="8.5" cy="10.5" r="1.5" fill="#fff"/>
+            </svg>
+            <svg width="25" height="12" viewBox="0 0 27 13" fill="none">
+              <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke="#fff" strokeOpacity="0.35"/>
+              <rect x="2" y="2" width="20" height="9" rx="2" fill="#fff"/>
+            </svg>
+          </div>
+        </div>
+        {/* 内容区 */}
+        <div style={{ position: 'absolute', inset: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {children}
+        </div>
+        {/* Home 指示条 */}
+        <div style={{
+          position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+          width: 134, height: 5, borderRadius: 100, background: 'rgba(0,0,0,0.2)', zIndex: 60,
+          pointerEvents: 'none',
+        }}/>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── 今日任务页 (TodayTasksScreen) ──────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+const IconSun = ({ color = C.iconGray, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="4" stroke={color} strokeWidth="1.6"/>
+    <line x1="10" y1="1" x2="10" y2="3.5" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <line x1="10" y1="16.5" x2="10" y2="19" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <line x1="1" y1="10" x2="3.5" y2="10" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <line x1="16.5" y1="10" x2="19" y2="10" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <line x1="3.5" y1="3.5" x2="5.3" y2="5.3" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <line x1="14.7" y1="14.7" x2="16.5" y2="16.5" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <line x1="16.5" y1="3.5" x2="14.7" y2="5.3" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <line x1="5.3" y1="14.7" x2="3.5" y2="16.5" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+  </svg>
+);
+const IconPin = ({ color = C.iconGray, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <path d="M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z" stroke={color} strokeWidth="1.6"/>
+    <circle cx="10" cy="7" r="2" stroke={color} strokeWidth="1.4"/>
+  </svg>
+);
+const IconShield = ({ color = C.iconGray, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <path d="M10 2L3 5v5c0 4 3.5 7.5 7 8.5C13.5 17.5 17 14 17 10V5L10 2z" stroke={color} strokeWidth="1.6" strokeLinejoin="round"/>
+    <path d="M7 10l2 2 4-4" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const IconPeople = ({ color = C.iconGray, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <circle cx="8" cy="6" r="3" stroke={color} strokeWidth="1.5"/>
+    <path d="M2 18c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+    <circle cx="14.5" cy="6.5" r="2.3" stroke={color} strokeWidth="1.4"/>
+    <path d="M13 13.2c.5-.1 1-.2 1.5-.2 2.8 0 5 2.2 5 5" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+  </svg>
+);
+const IconTheater = ({ color = C.iconGray, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <rect x="2" y="7" width="16" height="10" rx="1.5" stroke={color} strokeWidth="1.5"/>
+    <path d="M5 7V5a5 5 0 0110 0v2" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M7 12c.5 1.5 5.5 1.5 6 0" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+  </svg>
+);
+const IconMoon = ({ color = C.iconGray, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <path d="M16 11A7 7 0 019 4a7 7 0 100 14 7 7 0 007-7z" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <circle cx="15" cy="5" r="1" fill={color}/>
+    <circle cx="17.5" cy="3" r="0.7" fill={color}/>
+    <circle cx="17" cy="7" r="0.7" fill={color}/>
+  </svg>
+);
+const IconChevronDown = ({ open }) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+    style={{ transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform .2s' }}>
+    <path d="M3 5l4 4 4-4" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const IconPlus = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <line x1="12" y1="5" x2="12" y2="19" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/>
+    <line x1="5" y1="12" x2="19" y2="12" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/>
+  </svg>
+);
+
+function ReportFAB({ onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      position: 'absolute', bottom: 76, right: 20,
+      width: 56, height: 56, borderRadius: '50%', background: C.brand,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      cursor: 'pointer', zIndex: 10,
+      boxShadow: '0 4px 14px rgba(22,119,255,0.32)',
+    }}>
+      <IconPlus />
+    </div>
+  );
+}
+
+const SOP_DATA = {
+  '开园准备检查': ['各入口闸机设备运行正常，无故障报错','广播系统、显示屏正常播放开园信息','安全警示标识齐全，游览路线畅通','各岗位人员到岗，着装规范整洁','急救设备与应急物资到位'],
+  '洗手间卫生':   ['地面干燥无积水、无污渍','洗手台清洁，镜面无水渍','无异味，通风设备正常','卫生纸、洗手液物料充足','隔间门锁完好无损坏'],
+  '设施完好':     ['游览步道无破损、无积水、无障碍物','公共休憩座椅牢固，无损坏缺失','导览标识清晰，指向准确无误','垃圾桶分类标识完整，未超容量','景观照明设备外观完好，无破损'],
+  '监控全域覆盖': ['所有监控摄像头画面清晰、无遮挡','监控盲区已设人员巡逻补位','录像存储系统运行正常，存储空间充足','夜视功能正常，低照度环境可识别','实时画面传输至监控中心无延迟'],
+  '消防设施设备': ['灭火器压力在正常范围内（绿区）','消防栓出水口无堵塞，水压正常','消防通道畅通，无占用堆放','疏散指示灯及应急照明正常亮起','烟感报警器无故障红灯，测试有效'],
+  '员工服务':     ['员工统一着景区服装，佩戴工牌','对游客主动问候，文明用语规范','能准确解答游客常见问询','禁止在岗位玩手机或聚集闲聊','遇游客投诉能及时上报处理'],
+  '情感表达':     ['演员表情自然，与角色情绪相符','台词吐字清晰，情感到位，无念稿感','与游客互动部分自然不生硬','群演配合默契，无出戏状况','演出结束谢幕礼仪规范完整'],
+  '闭园安全检查': ['确认所有游客已离场，无滞留人员','各景区出口闸机已关闭并锁定','重要设备断电并处于安全状态','末班广播已播放，闭园通知完成','夜间值守人员到岗，交接记录完整'],
+};
+
+function SOPModal({ item, onClose }) {
+  const standards = SOP_DATA[item] || ['检查标准内容加载中...'];
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
+      <div style={{ width: '100%', background: '#fff', borderRadius: '16px 16px 0 0', padding: '0 0 30px' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 0' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: '#E0E0E0' }}/>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '16px 20px 12px', borderBottom: `0.5px solid ${C.line}` }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: C.text, lineHeight: '24px' }}>{item}</div>
+            <div style={{ marginTop: 4 }}><Tag label="必查" /></div>
+          </div>
+          <div onClick={onClose} style={{ cursor: 'pointer', padding: '2px 0 0 12px' }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4l12 12M16 4L4 16" stroke="#999" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          </div>
+        </div>
+        <div style={{ padding: '16px 20px 0' }}>
+          <div style={{ fontSize: 13, color: C.textTer, marginBottom: 10, fontWeight: 500 }}>检查标准：</div>
+          {standards.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 20, height: 20, borderRadius: '50%', background: C.brandSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, fontWeight: 600, color: C.brand }}>{i + 1}</div>
+              <div style={{ fontSize: 14, color: C.textSec, lineHeight: '20px', paddingTop: 1 }}>{s}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskItem({ name, tag, state, onConfirm, onReport, onSOP, onShowMediaPicker, isLast }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const [photos, setPhotos] = React.useState([]);
+  const [note, setNote] = React.useState('');
+  const [addPhotoHover, setAddPhotoHover] = React.useState(false);
+  const [addPhotoActive, setAddPhotoActive] = React.useState(false);
+  const [noteFocused, setNoteFocused] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const noteRef = React.useRef(null);
+  const maxPhotos = 3;
+  const THUMB = 50;
+  const NOTE_PLACEHOLDER = '备注（选填） 例：1号灭火器位置正常';
+  const EXPAND_BG = '#F5FBF7';
+  const PHOTO_BORDER = '#E5E7EB';
+  const INPUT_BORDER = '#D1D5DB';
+  const CONFIRM_NORMAL_BTN = { enabled: '#22C55E', pressed: '#16A34A' };
+  const [btnPressed, setBtnPressed] = React.useState(false);
+  const tagStyle = tag === '必查' ? { color: '#666', background: '#F5F5F5' } : { color: C.warn, background: '#FFF7E8' };
+  const isDone = state === 'done';
+  const isIssue = state === 'issue';
+  const canConfirm = photos.length > 0;
+  const checkSelected = expanded || isDone;
+
+  const syncNoteHeight = () => {
+    const el = noteRef.current;
+    if (!el) return;
+    el.style.height = '36px';
+    el.style.height = `${Math.max(36, Math.min(el.scrollHeight, 80))}px`;
+  };
+
+  React.useLayoutEffect(() => {
+    if (expanded) syncNoteHeight();
+  }, [note, expanded]);
+
+  const collapse = () => { setExpanded(false); setPhotos([]); setNote(''); setSubmitting(false); setBtnPressed(false); };
+
+  const handleCheckClick = (e) => {
+    e.stopPropagation();
+    if (isDone || isIssue) return;
+    if (expanded) collapse();
+    else setExpanded(true);
+  };
+
+  const handleRowClick = () => {
+    if (expanded) collapse();
+    else onSOP();
+  };
+
+  const handleReportClick = (e) => {
+    e.stopPropagation();
+    if (isDone) return;
+    collapse();
+    onReport();
+  };
+
+  const handleConfirm = (e) => {
+    e.stopPropagation();
+    if (!canConfirm || submitting) return;
+    setSubmitting(true);
+    window.setTimeout(() => {
+      onConfirm();
+      collapse();
+    }, 550);
+  };
+
+  const addPhoto = (e) => {
+    e.stopPropagation();
+    if (photos.length >= maxPhotos) return;
+    onShowMediaPicker(() => {
+      setPhotos(p => p.length < maxPhotos ? [...p, { id: Date.now() }] : p);
+    });
+  };
+
+  const removePhoto = (e, i) => {
+    e.stopPropagation();
+    setPhotos(p => p.filter((_, j) => j !== i));
+  };
+
+  const thumbBox = (child) => ({
+    width: THUMB, height: THUMB, borderRadius: 8, flexShrink: 0,
+    background: '#fff', border: `1px dashed ${PHOTO_BORDER}`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  });
+
+  const photoHint = photos.length > 0
+    ? `已选 ${photos.length} 张，可继续添加`
+    : '请添加照片（至少1张）';
+
+  return (
+    <div style={{ background: '#fff', borderBottom: isLast ? 'none' : `0.5px solid ${C.line}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', minHeight: 48, padding: '0 16px', gap: 8 }}>
+        <div onClick={handleRowClick} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', minWidth: 0 }}>
+          {(isDone || isIssue) && !expanded && (
+            <span style={{ width: 4, height: 4, borderRadius: 2, background: isDone ? C.success : C.danger, flexShrink: 0 }} />
+          )}
+          <span style={{ fontSize: 14, color: isDone ? C.textTer : C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, flexShrink: 0, ...tagStyle }}>{tag}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+          <div onClick={handleCheckClick} title={checkSelected ? '已选中' : '确认正常'} style={{
+            width: 36, height: 32, borderRadius: 8,
+            background: isDone || checkSelected ? C.success : C.successSoft,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: isDone || isIssue ? 'default' : 'pointer',
+            opacity: isIssue && !isDone ? 0.45 : 1,
+            flexShrink: 0,
+          }}>
+            <svg width="15" height="11" viewBox="0 0 16 12" fill="none"><path d="M1.5 6l4 4 9-9" stroke={isDone || checkSelected ? '#fff' : C.success} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <div onClick={!isDone ? handleReportClick : undefined} title="标记异常" style={{
+            width: 36, height: 32, borderRadius: 8,
+            background: isIssue ? C.danger : C.dangerSoft,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: isDone ? 'default' : 'pointer',
+            opacity: isDone ? 0.35 : 1,
+            flexShrink: 0,
+          }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke={isIssue ? '#fff' : '#999'} strokeWidth="2" strokeLinecap="round"/></svg>
+          </div>
+        </div>
+      </div>
+      {expanded && (
+        <div style={{ background: EXPAND_BG, padding: '12px 16px', borderTop: '1px solid #E8F0EB' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: THUMB }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {photos.map((p, i) => (
+                <div key={p.id} style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={thumbBox()}>
+                    <svg width="16" height="14" viewBox="0 0 28 26" fill="none"><path d="M2 7h5l2.5-4h9L21 7h5v17H2z" stroke="#9CA3AF" strokeWidth="1.5"/><circle cx="14" cy="15.5" r="4" stroke="#9CA3AF" strokeWidth="1.5"/></svg>
+                  </div>
+                  <button type="button" onClick={(e) => removePhoto(e, i)} style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderRadius: 7, background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 9, cursor: 'pointer', fontFamily: FONT, lineHeight: 1 }}>✕</button>
+                </div>
+              ))}
+              {photos.length < maxPhotos && (
+                <button type="button" onClick={addPhoto} aria-label="添加照片"
+                  onMouseEnter={() => setAddPhotoHover(true)} onMouseLeave={() => { setAddPhotoHover(false); setAddPhotoActive(false); }}
+                  onMouseDown={() => setAddPhotoActive(true)} onMouseUp={() => setAddPhotoActive(false)}
+                  style={{
+                    ...thumbBox(),
+                    border: `1px dashed ${PHOTO_BORDER}`,
+                    background: (addPhotoHover || addPhotoActive) ? '#F9FAFB' : '#fff',
+                    cursor: 'pointer', fontFamily: FONT, padding: 0,
+                  }}>
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"/></svg>
+                </button>
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.textTer, lineHeight: 1.4, display: 'flex', alignItems: 'center' }}>{photoHint}</div>
+          </div>
+          <textarea
+            ref={noteRef}
+            value={note}
+            onChange={e => { setNote(e.target.value); syncNoteHeight(); }}
+            onClick={e => e.stopPropagation()}
+            onFocus={() => setNoteFocused(true)}
+            onBlur={() => setNoteFocused(false)}
+            placeholder={NOTE_PLACEHOLDER}
+            rows={1}
+            style={{
+              width: '100%', marginTop: 8, height: 36, minHeight: 36, maxHeight: 80, padding: '8px 12px',
+              fontSize: 14, color: C.text, lineHeight: '20px',
+              border: `1px solid ${noteFocused ? CONFIRM_NORMAL_BTN.enabled : INPUT_BORDER}`, borderRadius: 8, background: '#fff',
+              fontFamily: FONT, resize: 'none', outline: 'none', boxSizing: 'border-box',
+              overflow: 'hidden', transition: 'border-color 0.15s ease',
+            }}
+          />
+          <div style={{ marginTop: 10 }}>
+            {!canConfirm && !submitting ? (
+              <div role="status" aria-live="polite" style={{
+                height: 36, borderRadius: 8, background: '#F3F4F6',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '0 12px', userSelect: 'none', pointerEvents: 'none',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <circle cx="8" cy="8" r="7" stroke="#6B7280" strokeWidth="1.2"/>
+                  <path d="M8 7v4" stroke="#6B7280" strokeWidth="1.3" strokeLinecap="round"/>
+                  <circle cx="8" cy="5" r="0.8" fill="#6B7280"/>
+                </svg>
+                <span style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.3 }}>请先添加照片（至少 1 张）</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={submitting}
+                onMouseDown={() => !submitting && setBtnPressed(true)}
+                onMouseUp={() => setBtnPressed(false)}
+                onMouseLeave={() => setBtnPressed(false)}
+                style={{
+                  width: '100%', height: 44, borderRadius: 8, border: 'none', fontFamily: FONT,
+                  fontSize: 16, fontWeight: 600,
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  background: submitting || btnPressed ? CONFIRM_NORMAL_BTN.pressed : CONFIRM_NORMAL_BTN.enabled,
+                  color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {submitting ? (
+                  <>
+                    <span style={{
+                      width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                      border: '2px solid rgba(255,255,255,0.35)', borderTopColor: '#fff',
+                      animation: 'xytSpin 0.7s linear infinite',
+                    }} />
+                    提交中...
+                  </>
+                ) : '确认正常'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionGroup({ icon: Icon, iconColor, title, count, done, items, states, onConfirm, onReport, onSOP, onShowMediaPicker }) {
+  const [open, setOpen] = React.useState(false);
+  const allDone = done === count;
+  return (
+    <div>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', height: 40, cursor: 'pointer', background: C.bg }}>
+        <Icon color={iconColor} size={16} />
+        <span style={{ fontSize: 13, fontWeight: 500, color: C.textSec, flex: 1, letterSpacing: 0.2 }}>{title}</span>
+        <span style={{ fontSize: 12, color: C.textTer, marginRight: 6, fontFamily: MONO }}>
+          {done}<span style={{ color: '#CCC' }}>/</span>{count}
+        </span>
+        <IconChevronDown open={open} />
+      </div>
+      {open && (
+        <div style={{ background: '#fff' }}>
+          {items.map((item, i) => (
+            <TaskItem key={i} name={item.name} tag={item.tag || '必查'} state={states[i]}
+              onConfirm={() => onConfirm(i)} onReport={() => onReport(i, item)} onSOP={() => onSOP(item.name)}
+              onShowMediaPicker={onShowMediaPicker} isLast={i === items.length - 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProgressBar({ value, total }) {
+  const pct = total ? Math.round((value / total) * 100) : 0;
+  const remaining = total - value;
+  return (
+    <div style={{ padding: '16px 16px 18px', background: '#fff', borderBottom: `0.5px solid ${C.line}` }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ fontSize: 24, fontWeight: 600, color: C.text, fontFamily: MONO, lineHeight: 1 }}>{pct}</span>
+          <span style={{ fontSize: 14, color: C.textSec, fontWeight: 500 }}>%</span>
+          <span style={{ fontSize: 12, color: C.textTer, marginLeft: 8 }}>今日完成率</span>
+        </div>
+        <span style={{ fontSize: 12, color: C.textTer }}>
+          已完成 <span style={{ color: C.text, fontWeight: 500 }}>{value}</span>
+          <span style={{ margin: '0 4px' }}>·</span>
+          剩余 <span style={{ color: remaining > 0 ? C.warn : C.success, fontWeight: 500 }}>{remaining}</span> 项
+        </span>
+      </div>
+      <div style={{ height: 4, borderRadius: 2, background: C.line, overflow: 'hidden' }}>
+        <div style={{ height: '100%', borderRadius: 2, background: C.brand, width: `${pct}%`, transition: 'width .4s' }} />
+      </div>
+    </div>
+  );
+}
+
+const SECTIONS = [
+  { id: 'daily', icon: IconSun, iconColor: '#FF8F1F', title: '日常安全',
+    items: [
+      { name: '开园准备检查', tag: '必查' },
+      { name: '闭园安全检查', tag: '必查' },
+    ] },
+  { id: 'env', icon: IconPin, iconColor: '#07C160', title: '景区环境与设施品质',
+    items: [
+      { name: '商业店铺、餐饮区卫生', tag: '必查' },
+      { name: '洗手间卫生与气味管理', tag: '必查' },
+      { name: '设施完好（标识牌、氛围布置、防护设施等）', tag: '必查' },
+      { name: '建筑外立面', tag: '抽查' },
+    ] },
+  { id: 'security', icon: IconShield, iconColor: '#FA5151', title: '安全与应急处置',
+    items: [
+      { name: '监控全域覆盖与状态', tag: '必查' },
+      { name: '公共安全防护及标识', tag: '必查' },
+      { name: '消防设施、设备', tag: '必查' },
+      { name: '应急通道/出口与应急照明', tag: '必查' },
+      { name: '用电与施工安全', tag: '必查' },
+      { name: '特种应急设备（UPS、AED等）', tag: '必查' },
+      { name: '演出期间观众引导与秩序维护', tag: '必查' },
+      { name: '客流预警及分流机制', tag: '抽查' },
+    ] },
+  { id: 'service', icon: IconPeople, iconColor: '#1677FF', title: '市场与游客体验',
+    items: [
+      { name: '员工服务', tag: '必查' },
+      { name: '员工应知应会（含安全知识）掌握', tag: '必查' },
+    ] },
+  { id: 'show', icon: IconTheater, iconColor: '#7B5BD9', title: '演出与节目品质',
+    items: [
+      { name: '情感表达（演出）', tag: '必查' },
+      { name: '表演热情（演出）', tag: '必查' },
+      { name: '监场在岗抽查（内场及外场）', tag: '必查' },
+      { name: '队形整齐度（演出）', tag: '抽查' },
+      { name: '音响效果（演出）', tag: '抽查' },
+    ] },
+];
+
+function TodayTasksScreen({ onTabChange, onOpenReport, badges, states, setStates }) {
+  const [sopItem, setSopItem] = React.useState(null);
+  const [mediaPicker, setMediaPicker] = React.useState(null);
+
+  const totalItems = SECTIONS.reduce((a, s) => a + s.items.length, 0);
+  const doneCount = states.reduce((a, s) => a + s.filter(x => x === 'done').length, 0);
+
+  const handleConfirm = (sIdx, iIdx) => {
+    setStates(prev => { const next = prev.map(s => [...s]); next[sIdx][iIdx] = 'done'; return next; });
+  };
+  const handleReport = (sIdx, iIdx, item) => {
+    onOpenReport({ name: item.name, tag: item.tag || '必查', sIdx, iIdx });
+  };
+  const handleShowMediaPicker = (onSelect) => setMediaPicker({ onSelect });
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: C.brand, padding: '14px 16px 16px', paddingTop: MAIN_TAB_TOP_PAD, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>景</span>
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', lineHeight: 1.3 }}>{DUTY_QC_PROFILE.name}</div>
+              {(() => {
+                const { roleLine, scenicLine } = getRoleIdentityLines(DUTY_QC_PROFILE);
+                return (
+                  <>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 2, lineHeight: 1.35 }}>{roleLine}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>{scenicLine}</div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 15, color: '#fff', fontWeight: 500, lineHeight: 1.3 }}>4月29日 周二</div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', marginTop: 4,
+              padding: '2px 8px', borderRadius: 4,
+              background: 'rgba(255,255,255,0.22)', border: 'none',
+            }}>
+              <span style={{ fontSize: 11, color: '#fff', fontWeight: 500 }}>值班日</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ProgressBar value={doneCount} total={totalItems} />
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {SECTIONS.map((sec, sIdx) => {
+          const secDone = states[sIdx].filter(x => x === 'done').length;
+          return (
+            <SectionGroup key={sec.id} icon={sec.icon} iconColor={sec.iconColor} title={sec.title}
+              count={sec.items.length} done={secDone} items={sec.items} states={states[sIdx]}
+              onConfirm={(iIdx) => handleConfirm(sIdx, iIdx)}
+              onReport={(iIdx, item) => handleReport(sIdx, iIdx, item)}
+              onSOP={(name) => setSopItem(name)}
+              onShowMediaPicker={handleShowMediaPicker} />
+          );
+        })}
+        {/* 操作提示 — 极简单行 */}
+        <div style={{
+          margin: '12px 16px 16px', padding: '12px 16px',
+          background: C.brandSoft, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="7" stroke={C.brand} strokeWidth="1.2"/>
+            <path d="M8 4.5v4" stroke={C.brand} strokeWidth="1.4" strokeLinecap="round"/>
+            <circle cx="8" cy="11" r="0.7" fill={C.brand}/>
+          </svg>
+          <div style={{ flex: 1, fontSize: 12, color: C.brand, lineHeight: 1.5 }}>
+            点检查项查看 SOP 标准；发现额外问题点右下角 + 上报
+          </div>
+        </div>
+      </div>
+      <ReportFAB onClick={() => onOpenReport()} />
+      <BottomTabs active="home" onChange={onTabChange} badges={badges} />
+      {sopItem && <SOPModal item={sopItem} onClose={() => setSopItem(null)} />}
+      {mediaPicker && (
+        <BottomSheet title="选择上传方式" onClose={() => setMediaPicker(null)}>
+          {[{ label: '现场拍照' }, { label: '相册选择图片' }].map(({ label }) => (
+            <div key={label} onClick={() => { mediaPicker.onSelect(); setMediaPicker(null); }} style={{ padding: '15px 20px', fontSize: 15, color: C.text, cursor: 'pointer', borderBottom: `0.5px solid ${C.line}` }}>{label}</div>
+          ))}
+        </BottomSheet>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── 完整问题上报页 (ReportScreen) ──────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+const REPORT_DATA = {
+  areas: ['剧院','街区','店铺','游乐项目点','广场','停车场','办公区','后勤区','洗手间','其他'],
+  cats: ['仪容仪表','服务状态','安全管理','氛围管理','设施设备','工程管理','店铺管理','餐饮管理','卫生管理','演出管理'],
+  depts: ['工程部','策划部','商业管理部','安全部','剧场部','艺术团','游乐部游乐','餐饮部','接待部','游乐部引座','票房','行政部','人力资源部','财务部','采购部','景区负责人'],
+};
+const MAX_MEDIA = 9;
+const MEDIA_THUMB = 72;
+/** 上报页白底区块统一内边距：上/左右 12px，底 14px（末元素距模块底边 12–16px） */
+const REPORT_BLOCK_PAD = { padding: '12px 12px 14px' };
+
+// ✗ 入口：按检查项名称预推荐类别与部门
+const ITEM_RECOMMENDATIONS = {
+  '洗手间卫生与气味管理': { cat: '卫生管理', dept: '商业管理部' },
+  '设施完好（标识牌、氛围布置、防护设施等）': { cat: '设施设备', dept: '工程部' },
+  '消防设施、设备': { cat: '安全管理', dept: '安全部' },
+  '用电与施工安全': { cat: '工程管理', dept: '工程部' },
+  '员工服务': { cat: '服务状态', dept: '人力资源部' },
+  '商业店铺、餐饮区卫生': { cat: '餐饮管理', dept: '商业管理部' },
+};
+
+const VOICE_MOCK_DESC = '河坊街灯箱第5号不亮，影响夜间照明';
+
+function inferCatFromDesc(text) {
+  const t = text;
+  if (/灯|灯箱|标识|护栏|设施|设备|螺丝|门锁|照明|破损|损坏|松动|故障/.test(t)) return '设施设备';
+  if (/卫生|油污|异味|脏|垃圾|洗手|厕所|卫生间|气味/.test(t)) return '卫生管理';
+  if (/消防|安全|疏散|占用|通道/.test(t)) return '安全管理';
+  if (/演出|表演|千古情|座椅|舞台/.test(t)) return '演出管理';
+  if (/氛围|灯笼|布置|装饰/.test(t)) return '氛围管理';
+  if (/服务|态度|礼仪|仪容/.test(t)) return '服务状态';
+  if (/餐饮|食品|档口/.test(t)) return '餐饮管理';
+  if (/店铺|商铺|柜台/.test(t)) return '店铺管理';
+  if (/施工|用电|工程/.test(t)) return '工程管理';
+  return '';
+}
+
+function inferDeptFromDesc(text, cat) {
+  const t = text;
+  if (/灯|灯箱|标识|护栏|照明|设施|设备|螺丝|门锁|破损|损坏|松动|故障/.test(t)) return '工程部';
+  if (/消防|安全|疏散/.test(t)) return '安全部';
+  if (/卫生|油污|异味|洗手|厕所|卫生间|气味|垃圾/.test(t)) return '商业管理部';
+  if (/演出|千古情|座椅|舞台|表演/.test(t)) return '剧场部';
+  if (/后勤|仓库|库房|采购|货架/.test(t)) return '采购部';
+  if (/餐饮|档口|食品/.test(t)) return '餐饮部';
+  if (/服务|仪容/.test(t)) return '人力资源部';
+  if (cat === '设施设备' || cat === '工程管理') return '工程部';
+  if (cat === '卫生管理') return '商业管理部';
+  if (cat === '安全管理') return '安全部';
+  if (cat === '演出管理') return '剧场部';
+  return '';
+}
+
+function inferAreaFromDesc(text) {
+  const t = text;
+  if (/河坊街|水街|宋城大道|怪街|街区/.test(t)) return '街区';
+  if (/洗手间|厕所|卫生间/.test(t)) return '洗手间';
+  if (/后勤|仓库|库房|办公/.test(t)) return '后勤区';
+  if (/剧院|剧场|千古情|座椅/.test(t)) return '剧院';
+  if (/广场|大门|入口/.test(t)) return '广场';
+  if (/店铺|商铺|档口|餐饮/.test(t)) return '店铺';
+  return '';
+}
+
+function formatTicketDate(timeStr) {
+  const m = String(timeStr || '').match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '';
+  return `${parseInt(m[2], 10)}月${parseInt(m[3], 10)}日`;
+}
+
+function findSimilarTicket(cat, dept, loc) {
+  if (!cat || !dept || !loc) return null;
+  return TICKETS.find(t =>
+    t.cat === cat && t.dept === dept && t.loc === loc &&
+    t.status !== '已整改' && t.status !== '不整改'
+  ) || null;
+}
+
+function SimilarTicketBanner({ ticket, onView, onDismiss }) {
+  return (
+    <div style={{
+      margin: '0 12px 12px', padding: '12px 14px',
+      background: C.warnSoft, borderLeft: `3px solid ${C.warn}`, borderRadius: 6,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1l6 11H1L7 1z" stroke={C.warn} strokeWidth="1.4" strokeLinejoin="round"/>
+          <path d="M7 5.5v3" stroke={C.warn} strokeWidth="1.4" strokeLinecap="round"/>
+          <circle cx="7" cy="10.3" r="0.6" fill={C.warn}/>
+        </svg>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.warn }}>检测到相似工单</span>
+      </div>
+      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5, marginBottom: 2 }}>
+        {formatTicketDate(ticket.time)}有类似问题：{ticket.desc}
+      </div>
+      <div style={{ fontSize: 11, color: C.textTer, fontFamily: MONO, marginBottom: 10 }}>{ticket.id}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <button type="button" onClick={() => onView(ticket)} style={{
+          height: 30, padding: '0 12px', borderRadius: 6,
+          border: `0.5px solid ${C.warn}`, background: '#fff',
+          color: C.warn, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: FONT,
+        }}>查看该工单</button>
+        <button type="button" onClick={onDismiss} style={{
+          border: 'none', background: 'none', padding: 0,
+          color: C.textSec, fontSize: 12, cursor: 'pointer', fontFamily: FONT,
+        }}>仍要新建</button>
+      </div>
+    </div>
+  );
+}
+
+function DeptConfirmField({ dept, badge, onModify, onOpen, emptyHint }) {
+  return (
+    <div onClick={!dept ? onOpen : undefined} style={{ display: 'flex', alignItems: 'center', minHeight: 44, padding: '0 12px', cursor: !dept ? 'pointer' : 'default' }}>
+      <div style={{ width: 68, fontSize: 13, color: C.textSec, flexShrink: 0 }}>责任部门</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {dept ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+            padding: '6px 10px', borderRadius: 6, background: C.graySoft,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>{dept}</span>
+              {badge === 'AI推荐' && (
+                <span style={{ fontSize: 11, color: C.warn, fontWeight: 500, flexShrink: 0, padding: '1px 6px', borderRadius: 3, background: C.warnSoft }}>AI推荐</span>
+              )}
+              {badge === '已修改' && (
+                <span style={{ fontSize: 11, color: C.success, fontWeight: 500, flexShrink: 0, padding: '1px 6px', borderRadius: 3, background: C.successSoft }}>已修改</span>
+              )}
+            </div>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onModify(); }} style={{ padding: 0, border: 'none', background: 'none', fontSize: 12, color: C.textTer, cursor: 'pointer', fontFamily: FONT, flexShrink: 0 }}>修改</button>
+          </div>
+        ) : (
+          <span style={{ fontSize: 13, color: C.textTer }}>{emptyHint || '请选择'}</span>
+        )}
+      </div>
+      {!dept && (
+        <svg width="6" height="11" viewBox="0 0 6 11" fill="none" style={{ flexShrink: 0, marginLeft: 4 }}>
+          <path d="M1 1l4 4.5L1 10" stroke={C.textTer} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function ReportScreen({ sourceItem, onBack, onSubmit, onViewTicket }) {
+  const rec = sourceItem ? (ITEM_RECOMMENDATIONS[sourceItem.name] || { cat: '其他', dept: '运营部' }) : null;
+  const [voiceRecording, setVoiceRecording] = React.useState(false);
+  const [voiceDuration, setVoiceDuration] = React.useState(0);
+  const [desc, setDesc] = React.useState('');
+  const [submitted, setSubmitted] = React.useState(false);
+  const [areaType, setAreaType] = React.useState('');
+  const [detailLoc, setDetailLoc] = React.useState('');
+  const [cat, setCat] = React.useState(rec?.cat || '');
+  const [dept, setDept] = React.useState(rec?.dept || '');
+  const [deptAiRecommended, setDeptAiRecommended] = React.useState(false);
+  const [deptModified, setDeptModified] = React.useState(false);
+  const aiDeptRef = React.useRef('');
+  const [itemRecommended, setItemRecommended] = React.useState(!!rec?.cat);
+  const [urgent, setUrgent] = React.useState('常规');
+  const [showAreaPicker, setShowAreaPicker] = React.useState(false);
+  const [showCatPicker, setShowCatPicker] = React.useState(false);
+  const [showDeptPicker, setShowDeptPicker] = React.useState(false);
+  const [showMediaPicker, setShowMediaPicker] = React.useState(false);
+  const [photos, setPhotos] = React.useState([]);
+  const [similarDismissed, setSimilarDismissed] = React.useState(false);
+  const [aiAnalyzing, setAiAnalyzing] = React.useState(false);
+  const [aiFieldsReveal, setAiFieldsReveal] = React.useState(true);
+  const [areaAutoDetected, setAreaAutoDetected] = React.useState(false);
+  const areaAutoRef = React.useRef(false);
+  React.useEffect(() => { areaAutoRef.current = areaAutoDetected; }, [areaAutoDetected]);
+
+  const deptBadge = deptModified ? '已修改' : (deptAiRecommended && dept ? 'AI推荐' : null);
+  const descReady = desc.trim().length > 5;
+  const pendingRecHint = descReady ? '待推荐' : '请选择';
+  const similarTicket = React.useMemo(() => {
+    if (similarDismissed || !cat || !dept || !areaType) return null;
+    return findSimilarTicket(cat, dept, areaType);
+  }, [cat, dept, areaType, similarDismissed]);
+
+  React.useEffect(() => { setSimilarDismissed(false); }, [cat, dept, areaType]);
+  const canSubmit = desc.trim().length > 0 && photos.length > 0 && areaType && cat && dept;
+
+  React.useEffect(() => {
+    let timer;
+    if (voiceRecording) timer = setInterval(() => setVoiceDuration(d => d + 0.1), 100);
+    return () => clearInterval(timer);
+  }, [voiceRecording]);
+
+  React.useEffect(() => {
+    const text = desc.trim();
+    if (text.length <= 5) {
+      setAiAnalyzing(false);
+      return;
+    }
+    setAiAnalyzing(true);
+    const timer = setTimeout(() => {
+      const inferredCat = inferCatFromDesc(text);
+      const inferredDept = inferDeptFromDesc(text, inferredCat);
+      const inferredArea = inferAreaFromDesc(text);
+      setAiFieldsReveal(false);
+      requestAnimationFrame(() => {
+        if (inferredCat) { setCat(inferredCat); setItemRecommended(true); }
+        if (inferredDept) {
+          setDept(inferredDept);
+          setDeptAiRecommended(true);
+          setDeptModified(false);
+          aiDeptRef.current = inferredDept;
+        }
+        if (inferredArea) {
+          setAreaType(inferredArea);
+          setAreaAutoDetected(true);
+        } else if (areaAutoRef.current) {
+          setAreaType('');
+          setAreaAutoDetected(false);
+        }
+        setAiAnalyzing(false);
+        requestAnimationFrame(() => setAiFieldsReveal(true));
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [desc]);
+
+  const voiceToText = (append) => {
+    setDesc(prev => {
+      const t = prev.trim();
+      if (append && t) return `${t} ${VOICE_MOCK_DESC}`;
+      return VOICE_MOCK_DESC;
+    });
+  };
+  const userSetCat = (v) => { setCat(v); setItemRecommended(false); };
+  const userSetArea = (v) => { setAreaType(v); setAreaAutoDetected(false); };
+  const selectDept = (d) => {
+    setDept(d);
+    if (deptAiRecommended && d !== aiDeptRef.current) setDeptModified(true);
+    setShowDeptPicker(false);
+  };
+  const addMedia = (type) => {
+    if (photos.length >= MAX_MEDIA) return;
+    setShowMediaPicker(false);
+    setPhotos(p => [...p, { id: Date.now(), type }]);
+  };
+  const removeMedia = (i) => setPhotos(p => p.filter((_, j) => j !== i));
+  const submit = () => { setSubmitted(true); setTimeout(() => onSubmit && onSubmit(), 1500); };
+
+  const getBottomHint = () => {
+    if (canSubmit) return '确认提交并派单';
+    if (aiAnalyzing) return 'AI正在分析...';
+    if (!desc.trim()) return '请先描述问题';
+    if (photos.length === 0) return '请先拍照上传';
+    if (!areaType) return '请选择所在区域';
+    if (!dept) return '请完善必填项';
+    if (!cat) return '请完善必填项';
+    return '请完善必填项';
+  };
+
+  if (submitted) {
+    return (
+      <div style={{ flex: 1, background: C.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 28, textAlign: 'center' }}>
+        <div style={{ width: 72, height: 72, borderRadius: 36, background: C.successSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M8 18l7 7 13-13" stroke={C.success} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 600, color: C.text, marginBottom: 8 }}>提交成功</div>
+        <div style={{ fontSize: 14, color: C.textSec, lineHeight: 1.7 }}>工单 GD20260429008<br/>已自动派发至 <strong style={{ color: C.text }}>{dept}</strong></div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden', position: 'relative' }}>
+      <TopBar title={sourceItem ? '异常上报' : '问题上报'} onBack={onBack} />
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: SCROLL_PAD_STICKY_FOOTER }}>
+        {sourceItem && (
+          <div style={{ margin: '8px 12px 0', padding: '6px 10px', background: C.surface, borderRadius: 6, fontSize: 12, color: C.textSec }}>
+            来源 <span style={{ color: C.text, fontWeight: 500 }}>{sourceItem.name} · {sourceItem.tag}</span>
+          </div>
+        )}
+        <div style={{ margin: sourceItem ? 8 : 10, marginBottom: 8, background: C.surface, borderRadius: 12, overflow: 'hidden' }}>
+          <div style={REPORT_BLOCK_PAD}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>上传照片 <span style={{ color: C.textTer, fontWeight: 400 }}>· 至少 1 张</span></span>
+              <span style={{ fontSize: 11, color: photos.length > 0 ? C.success : C.textTer, fontFamily: MONO }}>
+                {photos.length > 0 ? `${photos.length}/${MAX_MEDIA} ✓` : `0/${MAX_MEDIA}`}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+              {photos.map((p, i) => (
+                <div key={p.id} style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={{ width: MEDIA_THUMB, height: MEDIA_THUMB, borderRadius: 8, background: C.surfaceAlt, border: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="22" height="20" viewBox="0 0 28 26" fill="none"><path d="M2 7h5l2.5-4h9L21 7h5v17H2z" stroke={C.textTer} strokeWidth="1.5"/><circle cx="14" cy="15.5" r="4" stroke={C.textTer} strokeWidth="1.5"/></svg>
+                  </div>
+                  <button onClick={() => removeMedia(i)} style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: 9, background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: FONT }}>✕</button>
+                </div>
+              ))}
+              {photos.length < MAX_MEDIA && (
+                <button onClick={() => setShowMediaPicker(true)} style={{ width: MEDIA_THUMB, height: MEDIA_THUMB, flexShrink: 0, borderRadius: 8, border: `1.5px dashed ${C.lineStrong}`, background: C.surfaceAlt, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer', fontFamily: FONT }}>
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke={C.textTer} strokeWidth="1.8" strokeLinecap="round"/></svg>
+                  <span style={{ fontSize: 10, color: C.textTer }}>添加</span>
+                </button>
+              )}
+            </div>
+          </div>
+          {similarTicket && (
+            <SimilarTicketBanner
+              ticket={similarTicket}
+              onView={(t) => onViewTicket && onViewTicket(t)}
+              onDismiss={() => setSimilarDismissed(true)}
+            />
+          )}
+          <div style={{ height: 12, background: C.bg }} />
+          <div style={{ paddingTop: 12, opacity: aiFieldsReveal ? 1 : 0, transition: 'opacity 300ms ease' }}>
+            <FieldRow compact label="问题类别"
+              value={cat || (descReady ? '待推荐' : '请选择')}
+              placeholder={!cat}
+              aiFilled={!!cat && itemRecommended}
+              badge={itemRecommended && cat ? '推荐' : undefined}
+              onClick={() => setShowCatPicker(true)} />
+            <Hairline inset={12} />
+            <DeptConfirmField dept={dept} badge={deptBadge}
+              emptyHint={!dept && descReady ? pendingRecHint : undefined}
+              onModify={() => setShowDeptPicker(true)}
+              onOpen={() => setShowDeptPicker(true)} />
+            <Hairline inset={12} />
+            <FieldRow compact label="所在区域"
+              value={areaType || (descReady ? '待推荐' : '请选择')}
+              placeholder={!areaType}
+              aiFilled={!!areaType && areaAutoDetected}
+              badge={areaAutoDetected && areaType ? '自动识别' : undefined}
+              onClick={() => setShowAreaPicker(true)} />
+          </div>
+          <Hairline inset={0} />
+          <div style={REPORT_BLOCK_PAD}>
+            <div style={{ fontSize: 13, color: C.textSec, marginBottom: 8 }}>问题描述（含详细地点）<span style={{ color: C.danger }}> *</span></div>
+            <div style={{ position: 'relative' }}>
+              <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="请描述问题详情及详细地点（如：3号剧院B区第2排座椅旁）" rows={3}
+                style={{ width: '100%', minHeight: 72, padding: desc.trim() ? '10px 40px 10px 12px' : '10px 12px', fontSize: 14, color: C.text, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5 }} />
+              {desc.trim().length > 0 && (
+                <button type="button" onClick={() => voiceToText(true)} title="语音输入"
+                  style={{
+                    position: 'absolute', right: 8, bottom: 8, width: 24, height: 24, borderRadius: 12,
+                    border: 'none', background: C.graySoft, cursor: 'pointer', padding: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                    <rect x="5" y="1.5" width="4" height="7" rx="2" stroke={C.textSec} strokeWidth="1.3"/>
+                    <path d="M2.5 7c0 2.5 2 4.5 4.5 4.5s4.5-2 4.5-4.5M7 11.5v1.5" stroke={C.textSec} strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+            {!desc.trim() && (
+              <button
+                onMouseDown={() => { setVoiceRecording(true); setVoiceDuration(0); }}
+                onMouseUp={() => { setVoiceRecording(false); if (voiceDuration > 0.3) voiceToText(false); }}
+                onMouseLeave={() => { if (voiceRecording) setVoiceRecording(false); }}
+                onTouchStart={() => { setVoiceRecording(true); setVoiceDuration(0); }}
+                onTouchEnd={() => { setVoiceRecording(false); if (voiceDuration > 0.3) voiceToText(false); }}
+                style={{ width: '100%', height: 40, marginTop: 8, border: 'none', borderRadius: 8, background: voiceRecording ? C.danger : C.brand, color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: FONT, userSelect: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {!voiceRecording && (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <rect x="5" y="1.5" width="4" height="7" rx="2" stroke="#fff" strokeWidth="1.3"/>
+                    <path d="M2.5 7c0 2.5 2 4.5 4.5 4.5s4.5-2 4.5-4.5M7 11.5v1.5" stroke="#fff" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                )}
+                {voiceRecording ? `松开结束 ${voiceDuration.toFixed(1)}s` : '按住说话'}
+              </button>
+            )}
+          </div>
+          <div style={{ height: 12, background: C.bg }} />
+          <div style={REPORT_BLOCK_PAD}>
+            <div style={{ fontSize: 13, color: C.textSec, marginBottom: 8 }}>紧急程度</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {['常规', '立即处理'].map(u => (
+                <button key={u} onClick={() => setUrgent(u)} style={{
+                  flex: 1, height: 36, border: `1px solid ${urgent === u ? (u === '立即处理' ? C.danger : C.brand) : C.line}`,
+                  borderRadius: 6, background: urgent === u ? (u === '立即处理' ? C.dangerSoft : C.brandSoft) : '#fff',
+                  color: urgent === u ? (u === '立即处理' ? C.danger : C.brand) : C.textSec,
+                  fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: FONT,
+                }}>{u}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={STICKY_FOOTER_STYLE}>
+        <button onClick={submit} disabled={!canSubmit} style={{ ...STICKY_PRIMARY_BTN, background: canSubmit ? C.brand : C.lineStrong, color: canSubmit ? '#fff' : C.textTer, fontSize: 16, fontWeight: 600, cursor: canSubmit ? 'pointer' : 'not-allowed' }}>确认提交并派单</button>
+        <div style={{ fontSize: 11, color: canSubmit ? C.brand : C.textTer, textAlign: 'center', marginTop: 8 }}>
+          {getBottomHint()}
+        </div>
+      </div>
+      {showMediaPicker && (
+        <BottomSheet title="选择上传方式" onClose={() => setShowMediaPicker(false)}>
+          {[{ label: '现场拍照', type: 'photo' }, { label: '相册选择图片', type: 'photo' }, { label: '现场拍视频', type: 'video' }, { label: '相册选择视频', type: 'video' }].map(({ label, type }) => (
+            <div key={label} onClick={() => addMedia(type)} style={{ padding: '15px 20px', fontSize: 15, color: C.text, cursor: 'pointer', borderBottom: `0.5px solid ${C.line}` }}>{label}</div>
+          ))}
+        </BottomSheet>
+      )}
+      {showAreaPicker && (
+        <BottomSheet title="选择所在区域" onClose={() => setShowAreaPicker(false)}>
+          {REPORT_DATA.areas.map(a => (
+            <div key={a} onClick={() => { userSetArea(a); setShowAreaPicker(false); }} style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `0.5px solid ${C.line}`, cursor: 'pointer', fontSize: 15, color: C.text }}>
+              {a}{areaType === a && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3.5 3.5L12 4" stroke={C.brand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+          ))}
+        </BottomSheet>
+      )}
+      {showCatPicker && (
+        <BottomSheet title="选择问题类别" onClose={() => setShowCatPicker(false)}>
+          {REPORT_DATA.cats.map(c => (
+            <div key={c} onClick={() => { userSetCat(c); setShowCatPicker(false); }} style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `0.5px solid ${C.line}`, cursor: 'pointer', fontSize: 15, color: C.text }}>
+              {c}{cat === c && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3.5 3.5L12 4" stroke={C.brand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+          ))}
+        </BottomSheet>
+      )}
+      {showDeptPicker && (
+        <BottomSheet title="确认责任部门" onClose={() => setShowDeptPicker(false)}>
+          {REPORT_DATA.depts.map(d => (
+            <div key={d} onClick={() => selectDept(d)} style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `0.5px solid ${C.line}`, cursor: 'pointer', fontSize: 15, color: C.text }}>
+              {d}{dept === d && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3.5 3.5L12 4" stroke={C.brand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+          ))}
+        </BottomSheet>
+      )}
+    </div>
+  );
+}
+
+// ── 工单列表 + 详情 ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function UrgentImmediateTag() {
+  return (
+    <span style={{
+      fontSize: 12, padding: '3px 8px', borderRadius: 5, flexShrink: 0,
+      background: URGENT_IMMEDIATE_RED, color: '#fff', fontWeight: 600,
+      display: 'inline-flex', alignItems: 'center', gap: 3, lineHeight: 1.2,
+    }}>🔴 立即处理</span>
+  );
+}
+
+function ExpectedDateMissingTag() {
+  return (
+    <span style={{
+      fontSize: 11, padding: '2px 8px', borderRadius: 5, flexShrink: 0,
+      background: '#F5F5F5', color: '#666',
+      display: 'inline-flex', alignItems: 'center', gap: 3, lineHeight: 1.2, fontWeight: 400,
+    }}>⏰ 未填预计时间</span>
+  );
+}
+
+function ElapsedDaysLabel({ days, status }) {
+  if (isTicketDetainedAlert(status, days)) {
+    return (
+      <span style={{
+        fontSize: 11, flexShrink: 0, color: DETAINED_ALERT_RED, fontWeight: 500,
+        display: 'inline-flex', alignItems: 'center', gap: 3, lineHeight: 1.2,
+      }}>⚠ 已产生 {days} 天</span>
+    );
+  }
+  return <span style={{ fontSize: 11, color: '#999', flexShrink: 0 }}>已产生 {days} 天</span>;
+}
+
+function ElapsedDaysDetailValue({ days, status }) {
+  if (isTicketDetainedAlert(status, days)) {
+    return (
+      <span style={{ color: DETAINED_ALERT_RED, fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        ⚠ {days}天
+      </span>
+    );
+  }
+  return <span style={{ color: C.textTer }}>{days}天</span>;
+}
+
+function TicketRow({ t, onClick, isLast }) {
+  const elapsedDays = elapsedDaysSince(t.time);
+  const titleText = String(t.desc || t.title || '').trim() || '未填写问题描述';
+  const statusLabel = t.status || '待处理';
+  const timeShort = t.time ? String(t.time).slice(5) : '—';
+  return (
+    <div onClick={onClick} style={{
+      display: 'flex', gap: 12, padding: '14px 16px 14px 13px', cursor: 'pointer',
+      borderBottom: isLast ? 'none' : `0.5px solid ${C.line}`,
+      background: C.surface,
+      borderLeft: '3px solid transparent',
+    }}>
+      <div style={{ width: 56, height: 56, borderRadius: 8, flexShrink: 0, background: C.surfaceAlt, border: `0.5px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="22" height="20" viewBox="0 0 28 26" fill="none"><path d="M2 7h5l2.5-4h9L21 7h5v17H2z" stroke={C.textTer} strokeWidth="1.5"/><circle cx="14" cy="15.5" r="4" stroke={C.textTer} strokeWidth="1.5"/></svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{
+          fontSize: 15, color: C.text, fontWeight: 500, lineHeight: 1.4,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>{titleText}</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {t.urgent === '立即处理' ? <UrgentImmediateTag /> : null}
+          {isExpectedDateMissing(t) ? <ExpectedDateMissingTag /> : null}
+          <Tag label={statusLabel} />
+          <span style={{ fontSize: 11, color: C.textTer }}>· {t.dept}</span>
+        </div>
+        <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: C.textTer, minWidth: 0, flex: 1 }}>
+            <svg width="10" height="12" viewBox="0 0 10 12" fill="none"><path d="M5 1a3.5 3.5 0 013.5 3.5C8.5 7 5 11 5 11S1.5 7 1.5 4.5A3.5 3.5 0 015 1z" stroke={C.textTer} strokeWidth="1"/><circle cx="5" cy="4.5" r="1.2" stroke={C.textTer} strokeWidth="1"/></svg>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.loc || '—'}</span>
+            <span style={{ margin: '0 4px', color: '#DDD', flexShrink: 0 }}>|</span>
+            <span style={{ flexShrink: 0 }}>{getTicketDiscoverer(t)} · {timeShort}</span>
+          </div>
+          <ElapsedDaysLabel days={elapsedDays} status={statusLabel} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalendarEventIcon({ color = C.textTer, size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <rect x="3" y="5" width="18" height="16" rx="2" stroke={color} strokeWidth="1.6" />
+      <path d="M3 10h18" stroke={color} strokeWidth="1.6" />
+      <path d="M8 3v4M16 3v4" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <rect x="8" y="13" width="3.5" height="3.5" rx="0.6" fill={color} />
+    </svg>
+  );
+}
+
+function TimeRangeSelect({ value, onChange }) {
+  const active = value !== '全部';
+  return (
+    <div style={{
+      flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
+      height: 32, padding: '0 8px 0 10px', borderRadius: 6,
+      border: `1px solid ${C.line}`,
+      background: C.surfaceAlt,
+    }}>
+      <CalendarEventIcon color={active ? C.brand : C.textTer} />
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          height: 30, minWidth: 56, padding: 0, border: 'none',
+          background: 'transparent',
+          fontSize: 12, color: C.textSec,
+          fontWeight: 400,
+          fontFamily: FONT, outline: 'none', cursor: 'pointer',
+        }}
+      >
+        {TIME_RANGE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function TicketsScreen({ tickets, onTicketClick, onTabChange, badges, directorMode = false, listState, onListStateChange }) {
+  const user = window.DATA.currentUser || CURRENT_USER;
+  const scrollRef = React.useRef(null);
+  const { scopeTab, statusFilter, timeRange, q, scrollTop, deptFilter } = listState;
+  const patchListState = (patch) => onListStateChange({ ...listState, ...patch });
+  React.useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollTop || 0;
+  }, []);
+  const handleOpenTicket = (t) => {
+    const st = scrollRef.current ? scrollRef.current.scrollTop : 0;
+    onListStateChange({ ...listState, scrollTop: st });
+    onTicketClick(t);
+  };
+  const matchSearch = (t) => !q.trim() || [t.desc, t.loc, t.who, t.id, t.dept].some(s => s.includes(q.trim()));
+  const matchTicket = (t, scope, status, range = timeRange) => {
+    const scopeOk = scope === '我上报的' ? t.who === user.name
+      : scope === '我部门的' ? t.dept === user.dept : true;
+    const statusOk = status === '全部' ? true
+      : status === '待处理' ? t.status === '待处理'
+      : t.status === status;
+    const rangeOk = isTicketInTimeRange(t, range);
+    const timeOk = isTicketInListScope(t, status);
+    const deptOk = !deptFilter || t.dept === deptFilter;
+    return scopeOk && statusOk && rangeOk && timeOk && deptOk;
+  };
+  const filterList = (scope, status, range = timeRange) => tickets.filter(t => matchTicket(t, scope, status, range) && matchSearch(t));
+  const list = sortTicketsForList(filterList(scopeTab, statusFilter), statusFilter);
+  const scopeTabs = directorMode ? ['全部工单'] : ['我上报的', '我部门的', '全部工单'];
+  const statusFilters = ['全部', '待处理', '已整改', '不整改'];
+  const summaryTotal = tickets.filter(t => matchTicket(t, '全部工单', statusFilter, timeRange)).length;
+  const summaryDept = tickets.filter(t => matchTicket(t, '我部门的', statusFilter, timeRange)).length;
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden' }}>
+      <div style={{ background: C.surface, padding: '14px 16px 0', paddingTop: MAIN_TAB_TOP_PAD }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontSize: 17, fontWeight: 600, color: C.text }}>工单</span>
+          <span style={{ fontSize: 12, color: C.textTer }}>
+            共 <span style={{ color: C.text, fontWeight: 500 }}>{summaryTotal}</span> 单 · 我部门 <span style={{ color: C.text, fontWeight: 500 }}>{summaryDept}</span> 单
+          </span>
+        </div>
+        <div style={{ display: 'flex', width: '100%', marginBottom: 12 }}>
+          {scopeTabs.map(g => (
+            <button key={g} onClick={() => patchListState({ scopeTab: g, scrollTop: 0 })} style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '8px 4px', background: 'none', border: 'none', cursor: 'pointer',
+              borderBottom: scopeTab === g ? `2px solid ${C.brand}` : '2px solid transparent',
+              color: scopeTab === g ? C.brand : C.textSec, fontSize: 14, fontWeight: scopeTab === g ? 600 : 400, fontFamily: FONT,
+              textAlign: 'center', whiteSpace: 'nowrap',
+            }}>{g} <span style={{ fontWeight: 400, fontSize: 12 }}>({filterList(g, statusFilter).length})</span></button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', width: '100%', marginBottom: 10, gap: 6 }}>
+          {statusFilters.map(s => (
+            <button key={s} onClick={() => patchListState({ statusFilter: s, scrollTop: 0 })} style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '6px 4px', borderRadius: 14, border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 12,
+              background: statusFilter === s ? C.brandSoft : C.surfaceAlt,
+              color: statusFilter === s ? C.brand : C.textSec,
+              fontWeight: statusFilter === s ? 600 : 400, textAlign: 'center',
+            }}>{s}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 0 10px' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 10px', background: C.surfaceAlt, borderRadius: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke={C.textTer} strokeWidth="1.4"/><path d="M11 11l3 3" stroke={C.textTer} strokeWidth="1.4" strokeLinecap="round"/></svg>
+            <input value={q} onChange={e => patchListState({ q: e.target.value, scrollTop: 0 })} placeholder="搜索工单描述、区域、发现人…"
+              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, fontFamily: FONT, color: C.text }} />
+          </div>
+          <TimeRangeSelect value={timeRange} onChange={v => patchListState({ timeRange: v, scrollTop: 0 })} />
+        </div>
+        {statusFilter === '待处理' && (
+          <div style={{ padding: '0 0 8px', fontSize: 11, color: '#999', lineHeight: 1.4 }}>
+            立即处理 &gt; 滞留工单 &gt; 其他待处理
+          </div>
+        )}
+      </div>
+      {deptFilter && (
+        <div style={{ padding: '6px 16px', fontSize: 11, color: C.textTer, background: C.brandSoft, borderBottom: `0.5px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>部门筛选 · <span style={{ color: C.brand, fontWeight: 500 }}>{deptFilter}</span></span>
+          <button type="button" onClick={() => patchListState({ deptFilter: null, scrollTop: 0 })} style={{ background: 'none', border: 'none', color: C.brand, fontSize: 11, cursor: 'pointer', fontFamily: FONT, padding: 0 }}>清除</button>
+        </div>
+      )}
+      {scopeTab === '我部门的' && !deptFilter && (
+        <div style={{ padding: '6px 16px', fontSize: 11, color: C.textTer, background: C.surfaceAlt, borderBottom: `0.5px solid ${C.line}` }}>
+          当前部门 · <span style={{ color: C.textSec }}>{user.dept}</span>
+        </div>
+      )}
+      <div ref={scrollRef} style={{ flex: 1, overflow: 'auto', background: C.surface }}>
+        {list.map((t, i) => <TicketRow key={t.id} t={t} onClick={() => handleOpenTicket(t)} isLast={i === list.length - 1} />)}
+        {list.length === 0 && <div style={{ padding: 60, textAlign: 'center', color: C.textTer, fontSize: 13 }}>
+          暂无{timeRange !== '全部' ? timeRange : ''}{statusFilter === '全部' ? '' : statusFilter}工单
+        </div>}
+      </div>
+      <BottomTabs active="tickets" onChange={onTabChange} badges={badges} />
+    </div>
+  );
+}
+
+function DetailRow({ k, v, action, onActionClick }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', minHeight: 48, padding: '0 16px' }}>
+      <div style={{ width: 76, fontSize: 13, color: C.textSec, flexShrink: 0 }}>{k}</div>
+      <div style={{ flex: 1, fontSize: 14, color: C.text }}>{v}</div>
+      {action && <button type="button" onClick={onActionClick} style={{ fontSize: 12, color: C.brand, background: 'none', border: `1px solid ${C.brand}`, borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontFamily: FONT }}>{action}</button>}
+    </div>
+  );
+}
+
+function PhotoLightbox({ onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 400,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 320, aspectRatio: '4/3', borderRadius: 10,
+        background: C.surfaceAlt, border: '1px solid rgba(255,255,255,0.15)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="48" height="44" viewBox="0 0 28 26" fill="none"><path d="M2 7h5l2.5-4h9L21 7h5v17H2z" stroke={C.textTer} strokeWidth="1.5"/><circle cx="14" cy="15.5" r="4" stroke={C.textTer} strokeWidth="1.5"/></svg>
+      </div>
+      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 16 }}>点击空白处关闭</div>
+    </div>
+  );
+}
+
+function MediaThumbStrip({ photos, onAdd, onRemove, max = 9, onPhotoClick }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+      {photos.map((p, i) => (
+        <div key={p.id} style={{ position: 'relative', flexShrink: 0 }}>
+          <div
+            onClick={onPhotoClick ? () => onPhotoClick(p, i) : undefined}
+            style={{
+              width: MEDIA_THUMB, height: MEDIA_THUMB, borderRadius: 8, background: C.surfaceAlt,
+              border: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: onPhotoClick ? 'pointer' : 'default',
+            }}
+          >
+            <svg width="22" height="20" viewBox="0 0 28 26" fill="none"><path d="M2 7h5l2.5-4h9L21 7h5v17H2z" stroke={C.textTer} strokeWidth="1.5"/><circle cx="14" cy="15.5" r="4" stroke={C.textTer} strokeWidth="1.5"/></svg>
+          </div>
+          {onRemove && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(i); }} style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: 9, background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: FONT }}>✕</button>
+          )}
+        </div>
+      ))}
+      {photos.length < max && onAdd && (
+        <button type="button" onClick={onAdd} style={{ width: MEDIA_THUMB, height: MEDIA_THUMB, flexShrink: 0, borderRadius: 8, border: `1.5px dashed ${C.lineStrong}`, background: C.surfaceAlt, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer', fontFamily: FONT }}>
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke={C.textTer} strokeWidth="1.8" strokeLinecap="round"/></svg>
+          <span style={{ fontSize: 10, color: C.textTer }}>添加</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function VoiceInputBar({ value, onChange, placeholder }) {
+  const [recording, setRecording] = React.useState(false);
+  const [duration, setDuration] = React.useState(0);
+  React.useEffect(() => {
+    let timer;
+    if (recording) timer = setInterval(() => setDuration(d => d + 0.1), 100);
+    return () => clearInterval(timer);
+  }, [recording]);
+  const stopRecord = () => {
+    setRecording(false);
+    if (duration > 0.3) onChange((value || '') + (value ? ' ' : '') + '整改已完成，现场情况见照片。');
+    setDuration(0);
+  };
+  return (
+    <div style={{ position: 'relative' }}>
+      <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || '选填，可描述整改措施'} rows={3}
+        style={{ width: '100%', minHeight: 72, padding: '10px 36px 10px 12px', fontSize: 14, color: C.text, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5, background: '#fff' }} />
+      <button type="button"
+        onMouseDown={(e) => { e.preventDefault(); setRecording(true); setDuration(0); }}
+        onMouseUp={stopRecord}
+        onMouseLeave={() => { if (recording) stopRecord(); }}
+        onTouchStart={(e) => { e.preventDefault(); setRecording(true); setDuration(0); }}
+        onTouchEnd={stopRecord}
+        title="按住说话"
+        style={{
+          position: 'absolute', right: 8, bottom: 8, width: 28, height: 28, borderRadius: 14,
+          border: recording ? 'none' : `1px solid ${C.line}`, background: recording ? C.danger : '#fff',
+          color: recording ? '#fff' : C.textSec, fontSize: 13, cursor: 'pointer', fontFamily: FONT,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1,
+        }}>
+        {recording ? `${Math.ceil(duration)}s` : '🎙'}
+      </button>
+    </div>
+  );
+}
+
+function ReassignModal({ currentDept, dept, onDeptChange, reason, onReasonChange, onCancel, onConfirm, canConfirm }) {
+  return (
+    <div onClick={onCancel} style={{
+      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 300,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', background: C.surface, borderRadius: 14, overflow: 'hidden',
+      }}>
+        <div style={{ padding: '18px 18px 14px', borderBottom: `0.5px solid ${C.line}` }}>
+          <div style={{ fontSize: 17, fontWeight: 600, color: C.text }}>改派工单</div>
+          <div style={{ fontSize: 12, color: C.textTer, marginTop: 6 }}>普通用户仅可改派 1 次</div>
+        </div>
+        <div style={{ padding: '16px 18px' }}>
+          <div style={{ fontSize: 13, color: C.textSec, marginBottom: 8 }}>改派至部门<span style={{ color: C.danger }}> *</span></div>
+          <select value={dept} onChange={e => onDeptChange(e.target.value)} style={{
+            width: '100%', height: 44, padding: '0 12px', fontSize: 14, color: C.text,
+            border: `1px solid ${C.line}`, borderRadius: 8, background: C.surfaceAlt,
+            fontFamily: FONT, outline: 'none',
+          }}>
+            {REPORT_DATA.depts.map(d => (
+              <option key={d} value={d}>{d}{d === currentDept ? '（当前）' : ''}</option>
+            ))}
+          </select>
+          <div style={{ fontSize: 13, color: C.textSec, margin: '16px 0 8px' }}>改派原因（选填）</div>
+          <textarea value={reason} onChange={e => onReasonChange(e.target.value)} placeholder="选填，可说明改派原因" rows={3}
+            style={{ width: '100%', minHeight: 80, padding: '10px 12px', fontSize: 14, color: C.text, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 10, padding: '0 18px 18px' }}>
+          <button type="button" onClick={onCancel} style={{
+            flex: 1, height: 44, border: `1px solid ${C.line}`, borderRadius: 8,
+            background: C.surface, color: C.textSec, fontSize: 15, fontWeight: 500, cursor: 'pointer', fontFamily: FONT,
+          }}>取消</button>
+          <button type="button" onClick={onConfirm} disabled={!canConfirm} style={{
+            flex: 1, height: 44, border: 'none', borderRadius: 8,
+            background: canConfirm ? C.brand : C.lineStrong, color: canConfirm ? '#fff' : C.textTer,
+            fontSize: 15, fontWeight: 600, cursor: canConfirm ? 'pointer' : 'not-allowed', fontFamily: FONT,
+          }}>确认改派</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TicketDetail({ ticket, onBack }) {
+  const canOperate = ticket.status === '待处理';
+  const [actionPanel, setActionPanel] = React.useState(null);
+  const [showReassign, setShowReassign] = React.useState(false);
+  const [doneMsg, setDoneMsg] = React.useState(null);
+  const [fixPanelOpen, setFixPanelOpen] = React.useState(false);
+  const [fixPhotos, setFixPhotos] = React.useState([]);
+  const [fixDesc, setFixDesc] = React.useState('');
+  const [noFixReason, setNoFixReason] = React.useState('');
+  const scrollRef = React.useRef(null);
+  const [expectedDate, setExpectedDate] = React.useState(ticket.expectedDate || '');
+  const [expectedNote, setExpectedNote] = React.useState(ticket.expectedNote || '');
+  const [expectedLocked, setExpectedLocked] = React.useState(!!ticket.expectedDate);
+  const [expectedEditUsed, setExpectedEditUsed] = React.useState(!!ticket.expectedEditUsed);
+  const [reassignDept, setReassignDept] = React.useState(ticket.dept);
+  const [reassignReason, setReassignReason] = React.useState('');
+  const problemPhotos = [{ id: 1 }, { id: 2 }];
+  const togglePanel = (panel) => { setShowReassign(false); setActionPanel(prev => (prev === panel ? null : panel)); };
+  const openReassign = () => { setActionPanel(null); setShowReassign(true); };
+  const addFixPhoto = () => { if (fixPhotos.length < MAX_MEDIA) setFixPhotos(p => [...p, { id: Date.now() }]); };
+  const canSubmitFix = fixPhotos.length > 0;
+  const canSubmitNoFix = noFixReason.trim().length > 0;
+  const canReassign = !!reassignDept && reassignDept !== ticket.dept;
+  const elapsedDays = elapsedDaysSince(ticket.time);
+  const isPending = ticket.status === '待处理';
+  const isRectified = ticket.status === '已整改';
+  const resolveDays = getTicketResolveDays(ticket);
+  const fixResultPhotos = ticket.fixPhotos || [{ id: 'f1' }, { id: 'f2' }];
+  const [previewPhoto, setPreviewPhoto] = React.useState(null);
+  const [showExpectedPicker, setShowExpectedPicker] = React.useState(false);
+  const [pickerDate, setPickerDate] = React.useState('');
+  const [pickerNote, setPickerNote] = React.useState('');
+  const formatExpectedDate = (d) => (d ? String(d).replace(/-/g, '/') : '');
+  const openExpectedPicker = () => {
+    setPickerDate(expectedDate || '');
+    setPickerNote(expectedNote || '');
+    setShowExpectedPicker(true);
+  };
+  const saveExpectedFromPicker = () => {
+    if (!pickerDate) return;
+    if (expectedLocked && !expectedEditUsed) setExpectedEditUsed(true);
+    setExpectedDate(pickerDate);
+    setExpectedNote(pickerNote);
+    setExpectedLocked(true);
+    setShowExpectedPicker(false);
+  };
+  const openFixPanel = () => setFixPanelOpen(true);
+  const submitFix = () => {
+    if (!canSubmitFix) return;
+    setDoneMsg({ title: '整改已提交', sub: '工单将进入验收流程' });
+  };
+  React.useEffect(() => {
+    if (fixPanelOpen && scrollRef.current) {
+      requestAnimationFrame(() => {
+        scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      });
+    }
+  }, [fixPanelOpen]);
+  const actionSheetStyles = {
+    mask: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'flex-end' },
+    panel: { width: '100%', maxHeight: '65%', background: '#FFFFFF', borderTopLeftRadius: 16, borderTopRightRadius: 16, display: 'flex', flexDirection: 'column' },
+    handle: { width: 36, height: 4, borderRadius: 2, background: '#E0E0E0', margin: '12px auto 0' },
+    titleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px 12px' },
+    titleText: { fontSize: 16, fontWeight: 600, color: C.text },
+    cancelBtn: { background: 'none', border: 'none', fontSize: 14, color: C.textSec, cursor: 'pointer', fontFamily: FONT },
+    divider: { height: 0.5, background: '#EEEEEE' },
+    body: { flex: 1, overflowY: 'auto', padding: '16px' },
+  };
+  if (doneMsg) {
+    return (
+      <div style={{ flex: 1, background: C.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 28, textAlign: 'center' }}>
+        <div style={{ width: 72, height: 72, borderRadius: 36, background: C.successSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M8 18l7 7 13-13" stroke={C.success} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: C.text, marginBottom: 8 }}>{doneMsg.title}</div>
+        <div style={{ fontSize: 14, color: C.textSec, lineHeight: 1.7, marginBottom: 24 }}>{doneMsg.sub}</div>
+        <button type="button" onClick={onBack} style={{ height: 44, padding: '0 32px', border: 'none', borderRadius: 8, background: C.brand, color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>返回</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden', position: 'relative' }}>
+      <TopBar title="工单详情" onBack={onBack} />
+      <div ref={scrollRef} style={{ flex: 1, overflow: 'auto', paddingBottom: canOperate ? SCROLL_PAD_STICKY_FOOTER : 16 }}>
+        <div style={{ background: C.surface, padding: '16px 16px 14px' }}>
+          <div style={{ fontSize: 17, fontWeight: 600, color: C.text, lineHeight: 1.4, marginBottom: 8 }}>{ticket.desc}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Tag label={ticket.status} />
+            {ticket.urgent === '立即处理' ? <UrgentImmediateTag /> : null}
+            <span style={{ fontSize: 11, color: C.textTer, fontFamily: MONO, marginLeft: 'auto' }}>{ticket.id}</span>
+          </div>
+        </div>
+        <div style={{ background: C.surface, marginTop: 8, padding: '14px 16px' }}>
+          <div style={{ fontSize: 12, color: C.textSec, marginBottom: 10 }}>问题照片</div>
+          <MediaThumbStrip photos={problemPhotos} max={2} />
+        </div>
+        <div style={{ background: C.surface, marginTop: 8, padding: '14px 16px' }}>
+          <div style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>问题描述</div>
+          <div style={{ fontSize: 14, color: C.text, lineHeight: 1.65 }}>{getTicketDetailDesc(ticket)}</div>
+        </div>
+        <div style={{ background: C.surface, marginTop: 8 }}>
+          <DetailRow k="发现人" v={getTicketDiscovererDisplay(ticket)} />
+          <Hairline inset={16} />
+          <DetailRow k="提交时间" v={ticket.time} />
+          {isPending && (
+            <>
+              <Hairline inset={16} />
+              <DetailRow k="已产生" v={<ElapsedDaysDetailValue days={elapsedDays} status={ticket.status} />} />
+            </>
+          )}
+          {isRectified && (
+            <>
+              <Hairline inset={16} />
+              <DetailRow k="用时" v={<span style={{ color: C.textTer }}>{resolveDays}天</span>} />
+            </>
+          )}
+          <Hairline inset={16} />
+          <DetailRow k="责任部门" v={ticket.dept} action={canOperate ? '改派' : undefined} onActionClick={canOperate ? openReassign : undefined} />
+          <Hairline inset={16} />
+          <DetailRow k="问题类别" v={ticket.cat} />
+          <Hairline inset={16} />
+          <DetailRow k="所在区域" v={ticket.loc} />
+          {ticket.status === '待处理' && (
+            <>
+              <Hairline inset={16} />
+              <div style={{ display: 'flex', alignItems: 'center', minHeight: 48, padding: '0 16px' }}>
+                <div style={{ width: 76, fontSize: 13, color: C.textSec, flexShrink: 0 }}>
+                  预计完成时间{ticket.needExpectedDate && !expectedLocked ? <span style={{ color: C.danger }}> *</span> : null}
+                </div>
+                <div style={{ flex: 1, fontSize: 14, color: C.text }}>
+                  {expectedLocked ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span>{formatExpectedDate(expectedDate)}</span>
+                      {!expectedEditUsed && (
+                        <button type="button" onClick={openExpectedPicker} style={{ fontSize: 12, color: C.brand, background: 'none', border: `1px solid ${C.brand}`, borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontFamily: FONT }}>修改</button>
+                      )}
+                    </span>
+                  ) : ticket.needExpectedDate ? (
+                    <button type="button" onClick={openExpectedPicker} style={{ background: 'none', border: 'none', padding: 0, color: C.danger, fontSize: 14, cursor: 'pointer', fontFamily: FONT, textAlign: 'left' }}>
+                      请填写预计整改时间
+                    </button>
+                  ) : (
+                    <button type="button" onClick={openExpectedPicker} style={{ background: 'none', border: 'none', padding: 0, color: C.textSec, fontSize: 14, cursor: 'pointer', fontFamily: FONT, textAlign: 'left' }}>
+                      选填 · 可填写预计完成日期
+                    </button>
+                  )}
+                </div>
+              </div>
+              {expectedLocked && expectedNote.trim() && (
+                <>
+                  <Hairline inset={16} />
+                  <DetailRow k="补充说明" v={expectedNote} />
+                </>
+              )}
+            </>
+          )}
+        </div>
+        {isRectified && (
+          <div style={{ background: C.surface, marginTop: 8, marginBottom: 16 }}>
+            <div style={{ padding: '14px 16px' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 12 }}>整改结果</div>
+              <div style={{ fontSize: 12, color: C.textSec, marginBottom: 10 }}>整改照片</div>
+              <MediaThumbStrip photos={fixResultPhotos} max={4} onPhotoClick={() => setPreviewPhoto(true)} />
+              {ticket.fixDesc && (
+                <>
+                  <div style={{ fontSize: 12, color: C.textSec, margin: '14px 0 8px' }}>整改说明</div>
+                  <div style={{ fontSize: 14, color: C.text, lineHeight: 1.65 }}>{ticket.fixDesc}</div>
+                </>
+              )}
+            </div>
+            {ticket.doneTime && (
+              <>
+                <Hairline inset={16} />
+                <DetailRow k="完成时间" v={ticket.doneTime} />
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      {canOperate && (
+        <div style={STICKY_FOOTER_STYLE}>
+          {fixPanelOpen && (
+            <div style={{ marginBottom: 8, padding: '12px', borderRadius: 8, border: `0.5px solid ${C.line}`, background: C.surfaceAlt, maxHeight: '45vh', overflowY: 'auto' }}>
+              <button type="button" onClick={() => setFixPanelOpen(false)} style={{ display: 'block', width: '100%', marginBottom: 12, padding: 0, background: 'none', border: 'none', fontSize: 13, color: C.textSec, cursor: 'pointer', fontFamily: FONT, textAlign: 'center' }}>收起</button>
+              <div style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>整改照片<span style={{ color: C.danger }}> *</span> <span style={{ color: C.textTer }}>（至少 1 张）</span></div>
+              <MediaThumbStrip photos={fixPhotos} onAdd={addFixPhoto} onRemove={i => setFixPhotos(p => p.filter((_, j) => j !== i))} />
+              <div style={{ fontSize: 12, color: C.textSec, margin: '14px 0 8px' }}>整改说明</div>
+              <VoiceInputBar value={fixDesc} onChange={setFixDesc} placeholder="选填，可描述整改措施" />
+            </div>
+          )}
+          <button type="button" disabled={fixPanelOpen && !canSubmitFix} onClick={fixPanelOpen ? submitFix : openFixPanel} style={{
+            ...STICKY_PRIMARY_BTN,
+            background: fixPanelOpen ? (canSubmitFix ? C.brand : C.lineStrong) : C.brand,
+            color: fixPanelOpen ? (canSubmitFix ? '#fff' : C.textTer) : '#fff',
+            fontSize: 16, fontWeight: 600,
+            cursor: fixPanelOpen ? (canSubmitFix ? 'pointer' : 'not-allowed') : 'pointer',
+          }}>{fixPanelOpen ? '确认完成' : '上传整改'}</button>
+          <button type="button" onClick={() => togglePanel('no-fix')} style={{
+            width: '100%', marginTop: 8, padding: '4px 0', background: 'none', border: 'none',
+            fontSize: 12, color: C.textTer, cursor: 'pointer', fontFamily: FONT, textAlign: 'center',
+          }}>该问题无需整改？申请不整改</button>
+        </div>
+      )}
+      {canOperate && actionPanel === 'no-fix' && (
+        <div style={actionSheetStyles.mask} onClick={() => togglePanel('no-fix')}>
+          <div style={actionSheetStyles.panel} onClick={e => e.stopPropagation()}>
+            <div style={actionSheetStyles.handle} />
+            <div style={actionSheetStyles.titleRow}>
+              <div style={actionSheetStyles.titleText}>申请不整改</div>
+              <button type="button" onClick={() => togglePanel('no-fix')} style={actionSheetStyles.cancelBtn}>取消</button>
+            </div>
+            <div style={actionSheetStyles.divider} />
+            <div style={actionSheetStyles.body}>
+              <textarea value={noFixReason} onChange={e => setNoFixReason(e.target.value)} placeholder="请填写不整改原因" rows={4}
+                style={{ width: '100%', minHeight: 96, padding: '10px 12px', fontSize: 14, color: C.text, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5 }} />
+              <button type="button" disabled={!canSubmitNoFix} onClick={() => setDoneMsg({ title: '已提交审核', sub: '等待景区负责人（朱丽锋）审批' })} style={{ width: '100%', height: 44, marginTop: 14, marginBottom: 20, border: 'none', borderRadius: 8, background: canSubmitNoFix ? C.brand : C.lineStrong, color: canSubmitNoFix ? '#fff' : C.textTer, fontSize: 15, fontWeight: 600, cursor: canSubmitNoFix ? 'pointer' : 'not-allowed', fontFamily: FONT }}>提交审核</button>
+              <div style={{ fontSize: 11, color: C.textTer, textAlign: 'center', lineHeight: 1.5 }}>提交后将发送至景区负责人（朱丽锋）审核</div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showReassign && (
+        <ReassignModal currentDept={ticket.dept} dept={reassignDept} onDeptChange={setReassignDept} reason={reassignReason} onReasonChange={setReassignReason}
+          onCancel={() => setShowReassign(false)} onConfirm={() => { if (!canReassign) return; setShowReassign(false); setDoneMsg({ title: '改派成功', sub: `工单已改派至 ${reassignDept}` }); }} canConfirm={canReassign} />
+      )}
+      {ticket.status === '待处理' && showExpectedPicker && (
+        <div style={actionSheetStyles.mask} onClick={() => setShowExpectedPicker(false)}>
+          <div style={actionSheetStyles.panel} onClick={e => e.stopPropagation()}>
+            <div style={actionSheetStyles.handle} />
+            <div style={actionSheetStyles.titleRow}>
+              <div style={actionSheetStyles.titleText}>{expectedLocked ? '修改预计完成时间' : (ticket.needExpectedDate ? '填写预计整改时间' : '填写预计完成时间')}</div>
+              <button type="button" onClick={() => setShowExpectedPicker(false)} style={actionSheetStyles.cancelBtn}>取消</button>
+            </div>
+            <div style={actionSheetStyles.divider} />
+            <div style={actionSheetStyles.body}>
+              <div style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>预计完成日期{ticket.needExpectedDate ? <span style={{ color: C.danger }}> *</span> : null}</div>
+              <input type="date" value={pickerDate} onChange={e => setPickerDate(e.target.value)}
+                style={{ width: '100%', height: 44, padding: '0 12px', fontSize: 14, color: C.text, border: `1px solid ${C.line}`, borderRadius: 8, background: C.surfaceAlt, fontFamily: FONT, outline: 'none', marginBottom: 14, boxSizing: 'border-box' }} />
+              <div style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>补充说明（选填）</div>
+              <textarea value={pickerNote} onChange={e => setPickerNote(e.target.value)} placeholder="可补充整改计划、注意事项等…" rows={3}
+                style={{ width: '100%', minHeight: 72, padding: '10px 12px', fontSize: 14, color: C.text, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5, marginBottom: 4 }} />
+              {expectedLocked && !expectedEditUsed && (
+                <div style={{ fontSize: 11, color: C.textTer, marginBottom: 8 }}>保存后将不可再次修改</div>
+              )}
+              <button type="button" disabled={!pickerDate} onClick={saveExpectedFromPicker} style={{ width: '100%', height: 44, marginTop: 10, marginBottom: 20, border: 'none', borderRadius: 8, background: pickerDate ? C.brand : C.lineStrong, color: pickerDate ? '#fff' : C.textTer, fontSize: 15, fontWeight: 600, cursor: pickerDate ? 'pointer' : 'not-allowed', fontFamily: FONT }}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {previewPhoto && <PhotoLightbox onClose={() => setPreviewPhoto(null)} />}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── DashboardScreen ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+const DASHBOARD_DEPT_RANK = [
+  { name: '工程部', count: 33, done: 25, pending: 5, noFix: 3 },
+  { name: '商业管理部', count: 24, done: 18, pending: 4, noFix: 2 },
+  { name: '策划部', count: 15, done: 10, pending: 3, noFix: 2 },
+  { name: '剧场部', count: 12, done: 8, pending: 3, noFix: 1 },
+  { name: '安全部', count: 9, done: 6, pending: 2, noFix: 1 },
+  { name: '艺术团', count: 9, done: 5, pending: 3, noFix: 1 },
+  { name: '餐饮部', count: 4, done: 3, pending: 1, noFix: 0 },
+  { name: '接待部', count: 3, done: 2, pending: 1, noFix: 0 },
+  { name: '游乐部引座', count: 2, done: 1, pending: 1, noFix: 0 },
+  { name: '空值', count: 2, done: 0, pending: 1, noFix: 1 },
+];
+
+const DASHBOARD_AREA_RANK = [
+  { name: '街区', count: 47 },
+  { name: '室内剧院(1235号)', count: 21 },
+  { name: '外场演出剧院', count: 19 },
+  { name: '广场', count: 10 },
+  { name: '店铺', count: 6 },
+  { name: '游乐项目点', count: 4 },
+  { name: '餐厅', count: 4 },
+  { name: '洗手间', count: 2 },
+];
+
+const DASHBOARD_DEPT_EFFICIENCY = [
+  { name: '安全部', avgDays: 4.2 },
+  { name: '工程部', avgDays: 3.5 },
+  { name: '商业管理部', avgDays: 3.1 },
+  { name: '策划部', avgDays: 2.8 },
+  { name: '剧场部', avgDays: 2.5 },
+  { name: '艺术团', avgDays: 2.2 },
+  { name: '采购部', avgDays: 2.0 },
+  { name: '餐饮部', avgDays: 1.8 },
+  { name: '接待部', avgDays: 1.5 },
+  { name: '游乐部引座', avgDays: 1.2 },
+];
+
+const DASHBOARD_OPS_STATS = {
+  '今日': { reported: 8, closed: 6 },
+  '本周': { reported: 42, closed: 35 },
+  '本月': { reported: 128, closed: 102 },
+};
+const DASHBOARD_OPS_LABELS = {
+  '今日': { reported: '今日上报', closed: '今日闭环', rate: '闭环率' },
+  '本周': { reported: '本周上报', closed: '本周闭环', rate: '闭环率' },
+  '本月': { reported: '本月上报', closed: '本月闭环', rate: '闭环率' },
+};
+function dashboardCloseRate(reported, closed) {
+  if (!reported) return '—';
+  return `${Math.round((closed / reported) * 100)}%`;
+}
+const DASHBOARD_PENDING_STOCK = { pending: 6, detained: 2 };
+
+const DASHBOARD_DEPT_EFFICIENCY_BY_PERIOD = {
+  '今日': [
+    { name: '接待部', avgDays: 0.8 },
+    { name: '游乐部引座', avgDays: 1.0 },
+    { name: '餐饮部', avgDays: 1.2 },
+    { name: '采购部', avgDays: 1.5 },
+    { name: '剧场部', avgDays: 1.8 },
+    { name: '艺术团', avgDays: 2.0 },
+    { name: '策划部', avgDays: 2.2 },
+    { name: '商业管理部', avgDays: 2.5 },
+    { name: '工程部', avgDays: 2.8 },
+    { name: '安全部', avgDays: 3.2 },
+  ],
+  '本周': [
+    { name: '游乐部引座', avgDays: 1.0 },
+    { name: '接待部', avgDays: 1.2 },
+    { name: '餐饮部', avgDays: 1.4 },
+    { name: '采购部', avgDays: 1.7 },
+    { name: '艺术团', avgDays: 1.9 },
+    { name: '剧场部', avgDays: 2.1 },
+    { name: '策划部', avgDays: 2.4 },
+    { name: '商业管理部', avgDays: 2.7 },
+    { name: '工程部', avgDays: 3.2 },
+    { name: '安全部', avgDays: 3.8 },
+  ],
+  '本月': null,
+};
+
+const DASHBOARD_OVERDUE = [
+  {
+    id: 'GD20260427004', desc: '宋城大道消防箱玻璃破损', dept: '安全部', overdueDays: 8, date: '04-21',
+    cat: '安全管理', urgent: '立即处理', status: '待处理', time: '2026-04-21 11:05', loc: '街区', who: '景文峰',
+  },
+  {
+    id: 'GD20260428002', desc: '河坊街灯箱第5号不亮', dept: '工程部', overdueDays: 9, date: '04-20',
+    cat: '设施设备', urgent: '常规', status: '待处理', time: '2026-04-20 10:15', loc: '街区', who: '景文峰',
+  },
+];
+
+const RANK_PREVIEW_COUNT = 3;
+const RANK_COLORS = { done: '#3478F6', pending: '#F59E0B', noFix: '#8B5CF6' };
+const DASH_CARD_BG = '#F8F8F8';
+const DASH_MODULE_GAP = 24;
+const DASH_TITLE_GAP = 12;
+
+function RankRow({ rank, name, count, maxCount, isLast, compact }) {
+  const isTop = rank <= 3;
+  const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+  const barFill = isTop ? C.brand : '#D5DBE5';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, padding: compact ? '8px 0' : '12px 0',
+      borderBottom: isLast ? 'none' : `0.5px solid ${C.line}`,
+    }}>
+      <span style={{
+        width: 20, textAlign: 'center', fontSize: 12, fontWeight: isTop ? 600 : 400,
+        color: isTop ? C.brand : C.textTer, fontFamily: MONO, flexShrink: 0,
+      }}>{rank.toString().padStart(2, '0')}</span>
+      <span style={{ flexShrink: 0, maxWidth: '42%', fontSize: 14, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      <div style={{ flex: 1, minWidth: 24, height: 3, borderRadius: 1.5, background: '#F0F2F5', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 1.5, background: barFill }} />
+      </div>
+      <span style={{ fontSize: 14, fontWeight: 600, color: C.text, fontFamily: MONO, flexShrink: 0, width: 24, textAlign: 'right' }}>{count}</span>
+    </div>
+  );
+}
+
+function RankCard({ title, items, expanded, onToggleExpand, subtitle }) {
+  const visible = expanded ? items : items.slice(0, RANK_PREVIEW_COUNT);
+  const maxCount = items[0]?.count || 1;
+  const compact = !expanded;
+  return (
+    <div style={{ margin: `${DASH_MODULE_GAP}px 16px 0`, background: C.surface, padding: '0 16px 8px' }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: subtitle ? 4 : DASH_TITLE_GAP }}>{title}</div>
+      {subtitle && (
+        <div style={{ fontSize: 11, color: C.textTer, marginBottom: DASH_TITLE_GAP }}>{subtitle}</div>
+      )}
+      {visible.map((it, i) => (
+        <RankRow key={it.name} rank={i + 1} name={it.name} count={it.count} maxCount={maxCount}
+          compact={compact}
+          isLast={i === visible.length - 1 && (expanded || items.length <= RANK_PREVIEW_COUNT)} />
+      ))}
+      {items.length > RANK_PREVIEW_COUNT && (
+        <button type="button" onClick={onToggleExpand} style={{
+          width: '100%', minHeight: compact ? 36 : 44, padding: compact ? '6px 0 2px' : '10px 0 4px', marginTop: compact ? 2 : 4, background: 'none', border: 'none',
+          color: C.brand, fontSize: 13, cursor: 'pointer', fontFamily: FONT,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>{expanded ? '收起' : `展开全部（共${items.length}个）`}</button>
+      )}
+    </div>
+  );
+}
+
+function DeptStatCard({ rank, name, count, done, pending, noFix, onRowClick, onTagClick }) {
+  const [rowPressed, setRowPressed] = React.useState(false);
+  const [tagPressed, setTagPressed] = React.useState(null);
+  const isTop = rank <= 3;
+  const badges = [
+    { label: '已处理', count: done, color: RANK_COLORS.done, status: '已整改', clickable: false },
+    { label: '待处理', count: pending, color: RANK_COLORS.pending, status: '待处理', clickable: true },
+    { label: '不整改', count: noFix, color: RANK_COLORS.noFix, status: '不整改', clickable: true },
+  ];
+  const setRowPress = (v) => () => setRowPressed(v);
+  const setTagPress = (label) => () => setTagPressed(label);
+  return (
+    <div style={{
+      background: DASH_CARD_BG,
+      borderRadius: 8,
+      padding: '12px 16px',
+      boxSizing: 'border-box',
+    }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onRowClick && onRowClick(name)}
+        onTouchStart={setRowPress(true)}
+        onTouchEnd={setRowPress(false)}
+        onTouchCancel={setRowPress(false)}
+        onMouseDown={setRowPress(true)}
+        onMouseUp={setRowPress(false)}
+        onMouseLeave={setRowPress(false)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+          cursor: 'pointer',
+          transform: rowPressed ? 'scale(0.98)' : 'scale(1)',
+          transition: 'transform 0.1s ease',
+        }}
+      >
+        <span style={{
+          width: 20, textAlign: 'center', fontSize: 12, fontWeight: isTop ? 600 : 400,
+          color: isTop ? C.brand : C.textTer, fontFamily: MONO, flexShrink: 0,
+        }}>{rank.toString().padStart(2, '0')}</span>
+        <span style={{
+          flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, color: C.text,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{name}</span>
+        <span style={{ fontSize: 16, fontWeight: 600, color: C.text, fontFamily: MONO, flexShrink: 0 }}>{count}</span>
+        <span style={{ color: C.textTer, fontSize: 16, lineHeight: 1, flexShrink: 0 }}>{'>'}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {badges.map(b => {
+          const canClick = b.clickable && b.count > 0 && onTagClick;
+          const filled = canClick && tagPressed === b.label;
+          return (
+          <span
+            key={b.label}
+            role={canClick ? 'button' : undefined}
+            tabIndex={canClick ? 0 : undefined}
+            onClick={canClick ? (e) => {
+              e.stopPropagation();
+              onTagClick(name, b.status);
+            } : undefined}
+            onTouchStart={canClick ? setTagPress(b.label) : undefined}
+            onTouchEnd={canClick ? setTagPress(null) : undefined}
+            onTouchCancel={canClick ? setTagPress(null) : undefined}
+            onMouseDown={canClick ? setTagPress(b.label) : undefined}
+            onMouseUp={canClick ? setTagPress(null) : undefined}
+            onMouseLeave={canClick ? setTagPress(null) : undefined}
+            style={{
+              flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '5px 4px', borderRadius: 4,
+              background: filled ? b.color : '#fff',
+              color: filled ? '#fff' : b.color,
+              border: `1px solid ${b.color}`,
+              fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
+              cursor: canClick ? 'pointer' : 'default',
+              transform: filled ? 'scale(0.96)' : 'scale(1)',
+              transition: 'transform 0.12s ease, background 0.12s ease, color 0.12s ease',
+            }}
+          >{b.label} {b.count}</span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DeptStatRankCard({ title, items, expanded, onToggleExpand, onRowClick, onTagClick }) {
+  const visible = expanded ? items : items.slice(0, RANK_PREVIEW_COUNT);
+  return (
+    <div style={{ margin: `${DASH_MODULE_GAP}px 16px 0`, background: C.surface, padding: '0 16px 8px' }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: DASH_TITLE_GAP }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {visible.map((it, i) => (
+          <DeptStatCard key={it.name} rank={i + 1} name={it.name} count={it.count}
+            done={it.done} pending={it.pending} noFix={it.noFix}
+            onRowClick={onRowClick} onTagClick={onTagClick} />
+        ))}
+      </div>
+      {items.length > RANK_PREVIEW_COUNT && (
+        <button type="button" onClick={onToggleExpand} style={{
+          width: '100%', minHeight: 36, padding: '10px 0 2px', marginTop: 8, background: 'none', border: 'none',
+          color: C.brand, fontSize: 13, cursor: 'pointer', fontFamily: FONT,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>{expanded ? '收起' : `展开全部（共${items.length}个）`}</button>
+      )}
+    </div>
+  );
+}
+
+function efficiencyTagStyle(avgDays) {
+  if (avgDays <= 2) return { bg: '#F0FBF4', color: C.success };
+  if (avgDays <= 3.5) return { bg: '#FFF7E8', color: C.warn };
+  return { bg: '#FEF2F1', color: C.danger };
+}
+
+function EfficiencyRankRow({ rank, name, avgDays }) {
+  const isFirst = rank === 1;
+  const tag = efficiencyTagStyle(avgDays);
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: DASH_CARD_BG, borderRadius: 8, padding: '12px 16px', boxSizing: 'border-box',
+    }}>
+      {isFirst ? (
+        <span style={{
+          width: 22, height: 22, borderRadius: 11, background: C.success, color: '#fff',
+          fontSize: 11, fontWeight: 600, fontFamily: MONO, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>{rank.toString().padStart(2, '0')}</span>
+      ) : (
+        <span style={{
+          width: 22, textAlign: 'center', fontSize: 12, fontWeight: 400,
+          color: C.textTer, fontFamily: MONO, flexShrink: 0,
+        }}>{rank.toString().padStart(2, '0')}</span>
+      )}
+      <span style={{
+        flex: 1, minWidth: 0, fontSize: 14, color: C.text,
+        fontWeight: isFirst ? 600 : 400,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{name}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {isFirst && <span style={{ fontSize: 11, color: C.success, fontWeight: 500 }}>最快</span>}
+        <span style={{
+          padding: '4px 10px', borderRadius: 12, fontSize: 13, fontWeight: 600,
+          fontFamily: MONO, background: tag.bg, color: tag.color, whiteSpace: 'nowrap',
+        }}>{avgDays.toFixed(1)}天</span>
+      </div>
+    </div>
+  );
+}
+
+function EfficiencyRankCard({ title, items, expanded, onToggleExpand }) {
+  const sorted = [...items].sort((a, b) => a.avgDays - b.avgDays);
+  const visible = expanded ? sorted : sorted.slice(0, RANK_PREVIEW_COUNT);
+  return (
+    <div style={{ margin: `${DASH_MODULE_GAP}px 16px 0`, background: C.surface, padding: '0 16px 8px' }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: DASH_TITLE_GAP }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {visible.map((it, i) => (
+          <EfficiencyRankRow key={it.name} rank={i + 1} name={it.name} avgDays={it.avgDays} />
+        ))}
+      </div>
+      {sorted.length > RANK_PREVIEW_COUNT && (
+        <button type="button" onClick={onToggleExpand} style={{
+          width: '100%', minHeight: 36, padding: '10px 0 2px', marginTop: 8, background: 'none', border: 'none',
+          color: C.brand, fontSize: 13, cursor: 'pointer', fontFamily: FONT,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>{expanded ? '收起' : `展开全部（共${sorted.length}个）`}</button>
+      )}
+    </div>
+  );
+}
+
+function DashboardScreen({ onTabChange, badges, onTicketClick, onDrillToTickets, listState, onListStateChange }) {
+  const scrollRef = React.useRef(null);
+  const { timeRange, deptExpanded, areaExpanded, efficiencyExpanded, scrollTop } = listState;
+  const patchState = (patch) => onListStateChange({ ...listState, ...patch });
+  React.useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollTop || 0;
+  }, []);
+  const saveScroll = () => {
+    const st = scrollRef.current ? scrollRef.current.scrollTop : 0;
+    onListStateChange({ ...listState, scrollTop: st });
+  };
+  const handleOpenTicket = (t) => {
+    saveScroll();
+    onTicketClick && onTicketClick(t);
+  };
+  const openDeptTicketList = (dept) => {
+    saveScroll();
+    onDrillToTickets && onDrillToTickets({
+      scopeTab: '全部工单',
+      statusFilter: '全部',
+      deptFilter: dept,
+      timeRange: '全部',
+      q: '',
+      scrollTop: 0,
+    });
+  };
+  const drillToTickets = (statusFilter, dept) => {
+    saveScroll();
+    onDrillToTickets && onDrillToTickets({
+      scopeTab: '全部工单',
+      statusFilter: statusFilter || '全部',
+      deptFilter: dept,
+      timeRange: '全部',
+      q: '',
+      scrollTop: 0,
+    });
+  };
+  const timeOptions = ['今日', '本周', '本月'];
+  const opsStats = DASHBOARD_OPS_STATS[timeRange] || DASHBOARD_OPS_STATS['今日'];
+  const opsLabels = DASHBOARD_OPS_LABELS[timeRange] || DASHBOARD_OPS_LABELS['今日'];
+  const efficiencyItems = DASHBOARD_DEPT_EFFICIENCY_BY_PERIOD[timeRange] || DASHBOARD_DEPT_EFFICIENCY;
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden' }}>
+      <div style={{ background: C.surface, padding: `${MAIN_TAB_TOP_PAD}px 16px 14px`, borderBottom: `0.5px solid ${C.line}` }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 17, fontWeight: 600, color: C.text }}>数据看板</span>
+          <span style={{ fontSize: 12, color: C.textTer }}>统计范围按各模块标注</span>
+        </div>
+      </div>
+      <div ref={scrollRef} style={{ flex: 1, overflow: 'auto', paddingBottom: 12 }}>
+        {/* 区域一：运营动态 */}
+        <div style={{ padding: '14px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: C.text }}>运营动态</span>
+          <div style={{ display: 'flex', gap: 4, padding: 2, background: C.surfaceAlt, borderRadius: 6 }}>
+            {timeOptions.map(t => (
+              <button key={t} type="button" onClick={() => patchState({ timeRange: t, scrollTop: 0 })} style={{
+                minHeight: 28, padding: '0 10px', borderRadius: 4, border: 'none',
+                background: timeRange === t ? '#fff' : 'transparent',
+                color: timeRange === t ? C.text : C.textSec,
+                fontSize: 12, fontWeight: timeRange === t ? 600 : 400,
+                cursor: 'pointer', fontFamily: FONT,
+              }}>{t}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ margin: `${DASH_TITLE_GAP}px 16px 0`, display: 'flex', gap: 8 }}>
+          {[
+            { label: opsLabels.reported, value: opsStats.reported, color: C.text },
+            { label: opsLabels.closed, value: opsStats.closed, color: C.success },
+            { label: opsLabels.rate, value: dashboardCloseRate(opsStats.reported, opsStats.closed), color: C.brand },
+          ].map(cell => (
+            <div key={cell.label} style={{ flex: 1, background: C.surface, borderRadius: 8, padding: '14px 12px' }}>
+              <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}>{cell.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 600, color: cell.color, fontFamily: MONO, lineHeight: 1.1 }}>{cell.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ margin: `${DASH_MODULE_GAP}px 16px 0`, background: C.surface, borderRadius: 8, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: DASH_TITLE_GAP }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>当前未处理</span>
+            <span style={{ fontSize: 11, color: C.textTer }}>存量 · 不随时间切换</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontSize: 28, fontWeight: 600, color: C.brand, fontFamily: MONO }}>{DASHBOARD_PENDING_STOCK.pending}</span>
+            <span style={{ fontSize: 12, color: C.danger, fontWeight: 500 }}>· {DASHBOARD_PENDING_STOCK.detained} 单滞留{'>'}7天</span>
+          </div>
+        </div>
+
+        <div style={{
+          margin: `${DASH_MODULE_GAP}px 16px 0`, background: C.surface, borderRadius: 8,
+          borderLeft: `3px solid ${C.danger}`, overflow: 'hidden',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 14px 10px', borderBottom: `0.5px solid ${C.line}`,
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.danger }}>滞留工单（{'>'}7天）</span>
+            <span style={{ fontSize: 12, color: C.textTer }}>共 {DASHBOARD_OVERDUE.length} 单</span>
+          </div>
+          {DASHBOARD_OVERDUE.map((t, i) => (
+            <div key={t.id} onClick={() => handleOpenTicket(t)} style={{
+              padding: '12px 14px', minHeight: 48, cursor: 'pointer', boxSizing: 'border-box',
+              borderTop: i > 0 ? `0.5px solid ${C.line}` : 'none',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: C.text, marginBottom: 4, lineHeight: 1.4 }}>{t.desc}</div>
+              <div style={{ fontSize: 11, color: C.textTer }}>
+                {t.dept} · <span style={{ color: C.danger, fontWeight: 500 }}>已滞留 {t.overdueDays} 天</span> · {t.date}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <EfficiencyRankCard
+          title={`各部门平均处理天数 · ${timeRange}`}
+          items={efficiencyItems}
+          expanded={efficiencyExpanded}
+          onToggleExpand={() => patchState({ efficiencyExpanded: !efficiencyExpanded })}
+        />
+
+        <div style={{ margin: `${DASH_MODULE_GAP}px 16px 0`, paddingTop: 16, borderTop: `0.5px solid ${C.line}` }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 4 }}>数据总览</div>
+          <div style={{ fontSize: 11, color: C.textTer }}>统计范围：系统使用至今全部工单</div>
+        </div>
+
+        <DeptStatRankCard
+          title="各部门工单数量统计"
+          items={DASHBOARD_DEPT_RANK}
+          expanded={deptExpanded}
+          onToggleExpand={() => patchState({ deptExpanded: !deptExpanded })}
+          onRowClick={openDeptTicketList}
+          onTagClick={(dept, statusFilter) => drillToTickets(statusFilter, dept)}
+        />
+        <RankCard title="各区域问题数量分布" items={DASHBOARD_AREA_RANK} expanded={areaExpanded} onToggleExpand={() => patchState({ areaExpanded: !areaExpanded })} />
+
+        <div style={{ margin: `${DASH_MODULE_GAP}px 16px 0`, padding: '10px 12px', background: C.surfaceAlt, borderRadius: 6, textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: C.textTer, lineHeight: 1.6 }}>更多数据分析（部门级、月度趋势等）请前往钉钉端查看</div>
+        </div>
+      </div>
+      <BottomTabs active="dashboard" onChange={onTabChange} badges={badges} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── 我的 · 子页面（我的工单 / 消息通知 / 示例库）────────────
+// ═══════════════════════════════════════════════════════════
+
+function ComparePhotoPair() {
+  const panel = (emoji, label, bg) => (
+    <div style={{ flex: 1, minWidth: 0, height: 120, borderRadius: 8, background: bg, border: `0.5px solid ${C.line}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 8 }}>
+      <span style={{ fontSize: 28, lineHeight: 1 }}>{emoji}</span>
+      <span style={{ fontSize: 11, color: C.textSec, textAlign: 'center', lineHeight: 1.35 }}>{label}</span>
+    </div>
+  );
+  return (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      {panel('😯', '看起来像问题', 'linear-gradient(180deg, #FFF5EB 0%, #FFEDD5 100%)')}
+      {panel('😊', '实际上是正常的', 'linear-gradient(180deg, #F0FBF4 0%, #E8F8EE 100%)')}
+    </div>
+  );
+}
+
+function NonStandardExampleCard({ item, isLast }) {
+  return (
+    <div style={{ padding: '16px', borderBottom: isLast ? 'none' : `0.5px solid ${C.line}` }}>
+      {item.hasCompare && <ComparePhotoPair />}
+      <div style={{ fontSize: 15, fontWeight: 500, color: C.text, lineHeight: 1.4, marginBottom: 10 }}>{item.title}</div>
+      <div style={{ fontSize: 13, color: C.danger, lineHeight: 1.5, marginBottom: 6 }}>❌ 容易误判为：{item.misjudgment}</div>
+      <div style={{ fontSize: 13, color: C.success, lineHeight: 1.5, marginBottom: 6 }}>✅ 实际情况：{item.reality}</div>
+      <div style={{ fontSize: 12, color: C.textTer, lineHeight: 1.55 }}>识别要点：{item.tips}</div>
+    </div>
+  );
+}
+
+function MyTicketRow({ t, onClick, isLast }) {
+  const overdue = (t.overdueDays || 0) > 0;
+  const timeShort = t.time ? String(t.time).slice(5, 10) : '—';
+  return (
+    <div onClick={onClick} style={{ padding: '14px 16px', cursor: 'pointer', background: C.surface, borderBottom: isLast ? 'none' : `0.5px solid ${C.line}` }}>
+      <div style={{ fontSize: 15, fontWeight: 500, color: C.text, lineHeight: 1.4, marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.desc}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <Tag label={t.status || '待处理'} />
+        <span style={{ fontSize: 11, color: C.textTer, fontFamily: MONO }}>{t.id}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 12, color: C.textTer }}>{t.dept} · {t.loc || '—'} · {timeShort}</span>
+        {overdue && <span style={{ fontSize: 11, color: C.danger, fontWeight: 500, flexShrink: 0, marginLeft: 8 }}>超期{t.overdueDays}天 🔴</span>}
+      </div>
+    </div>
+  );
+}
+
+function MyTicketsScreen({ tickets, onBack, onTicketClick, listState, onListStateChange }) {
+  const user = window.DATA.currentUser || CURRENT_USER;
+  const scrollRef = React.useRef(null);
+  const { scopeTab, statusFilter, timeRange, q, scrollTop } = listState;
+  const patchListState = (patch) => onListStateChange({ ...listState, ...patch });
+  React.useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollTop || 0;
+  }, []);
+  const handleOpenTicket = (t) => {
+    const st = scrollRef.current ? scrollRef.current.scrollTop : 0;
+    onListStateChange({ ...listState, scrollTop: st });
+    onTicketClick(t);
+  };
+  const scopeTabs = ['我上报的', '待我处理'];
+  const statusFilters = ['全部', '待处理', '已整改', '不整改'];
+  const matchSearch = (t) => !q.trim() || [t.desc, t.loc, t.who, t.id, t.dept].some(s => String(s).includes(q.trim()));
+  const filterList = (scope, status, range = timeRange) => tickets.filter(t => {
+    const scopeOk = scope === '我上报的' ? t.who === user.name : t.dept === user.dept && t.status === '待处理';
+    const statusOk = status === '全部' ? true : status === '待处理' ? t.status === '待处理' : t.status === status;
+    const rangeOk = isTicketInTimeRange(t, range);
+    return scopeOk && statusOk && rangeOk && matchSearch(t);
+  });
+  const list = filterList(scopeTab, statusFilter).sort((a, b) => (b.overdueDays || 0) - (a.overdueDays || 0));
+  const tabStyle = (active) => ({
+    flex: 1, textAlign: 'center', padding: '10px 0', fontSize: 14, fontWeight: active ? 600 : 400,
+    color: active ? C.brand : C.textSec, cursor: 'pointer', borderBottom: active ? `2px solid ${C.brand}` : '2px solid transparent', fontFamily: FONT,
+  });
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden' }}>
+      <TopBar title="我的工单" onBack={onBack} />
+      <div style={{ background: C.surface, borderBottom: `0.5px solid ${C.line}`, flexShrink: 0 }}>
+        <div style={{ display: 'flex' }}>{scopeTabs.map(g => <div key={g} style={tabStyle(scopeTab === g)} onClick={() => patchListState({ scopeTab: g, scrollTop: 0 })}>{g} ({filterList(g, statusFilter).length})</div>)}</div>
+        <div style={{ display: 'flex', gap: 6, padding: '10px 16px 10px' }}>
+          {statusFilters.map(s => (
+          <button key={s} onClick={() => patchListState({ statusFilter: s, scrollTop: 0 })} style={{ flex: 1, padding: '6px 4px', borderRadius: 14, border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 12, background: statusFilter === s ? C.brandSoft : C.surfaceAlt, color: statusFilter === s ? C.brand : C.textSec, fontWeight: statusFilter === s ? 600 : 400 }}>{s}</button>
+        ))}</div>
+        <div style={{ padding: '0 16px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 10px', background: C.surfaceAlt, borderRadius: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke={C.textTer} strokeWidth="1.4"/><path d="M11 11l3 3" stroke={C.textTer} strokeWidth="1.4" strokeLinecap="round"/></svg>
+              <input value={q} onChange={e => patchListState({ q: e.target.value, scrollTop: 0 })} placeholder="搜索工单描述、区域…" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, fontFamily: FONT, color: C.text }} />
+            </div>
+            <TimeRangeSelect value={timeRange} onChange={v => patchListState({ timeRange: v, scrollTop: 0 })} />
+          </div>
+        </div>
+      </div>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', background: C.surface }}>
+        {list.map((t, i) => <MyTicketRow key={t.id} t={t} onClick={() => handleOpenTicket(t)} isLast={i === list.length - 1} />)}
+        {list.length === 0 && <div style={{ padding: 60, textAlign: 'center', color: C.textTer, fontSize: 13 }}>暂无工单</div>}
+      </div>
+    </div>
+  );
+}
+
+function NotificationsScreen({ items, onBack, onOpenTicket, onMarkRead, onDelete, listState, onListStateChange }) {
+  const scrollRef = React.useRef(null);
+  const { filter, expandedId, scrollTop } = listState;
+  const patchState = (patch) => onListStateChange({ ...listState, ...patch });
+  React.useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollTop || 0;
+  }, []);
+  const filters = ['全部', '滞留提醒', '系统'];
+  const recentItems = items.filter(isNotificationInRecentMonth);
+  const filtered = recentItems.filter(n => filter === '全部' ? true : filter === '滞留提醒' ? n.type === 'detained' : n.type === 'system');
+  const grouped = ['今天', '昨天', '更早'].map(g => ({ label: g, items: filtered.filter(n => n.group === g) })).filter(g => g.items.length > 0);
+  const handleClick = (n) => {
+    onMarkRead(n.id);
+    if (n.type === 'detained' && n.ticketId) {
+      const st = scrollRef.current ? scrollRef.current.scrollTop : 0;
+      onListStateChange({ ...listState, scrollTop: st });
+      onOpenTicket(n.ticketId);
+      return;
+    }
+    if (n.type === 'system' && n.ticketId) {
+      const st = scrollRef.current ? scrollRef.current.scrollTop : 0;
+      onListStateChange({ ...listState, scrollTop: st });
+      onOpenTicket(n.ticketId);
+      return;
+    }
+    if (n.type === 'system' && n.detail) patchState({ expandedId: expandedId === n.id ? null : n.id });
+  };
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden' }}>
+      <TopBar title="消息通知" onBack={onBack} />
+      <div style={{ display: 'flex', gap: 6, padding: '10px 16px', background: C.surface, borderBottom: `0.5px solid ${C.line}`, flexShrink: 0, overflowX: 'auto' }}>
+        {filters.map(f => <button key={f} onClick={() => patchState({ filter: f, scrollTop: 0 })} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 14, border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 12, background: filter === f ? C.brandSoft : C.surfaceAlt, color: filter === f ? C.brand : C.textSec, fontWeight: filter === f ? 600 : 400 }}>{f}</button>)}
+      </div>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto' }}>
+        {grouped.length === 0 && (
+          <div style={{ padding: 60, textAlign: 'center', color: C.textTer, fontSize: 13 }}>近1个月暂无通知</div>
+        )}
+        {grouped.map(g => (
+          <div key={g.label}>
+            <div style={{ padding: '8px 16px', fontSize: 12, color: C.textTer, background: C.surfaceAlt }}>{g.label}</div>
+            <div style={{ background: C.surface }}>
+              {g.items.map((n, i) => (
+                <SwipeableNotificationRow
+                  key={n.id}
+                  isLast={i === g.items.length - 1 && expandedId !== n.id}
+                  onDelete={() => onDelete && onDelete(n.id)}
+                  onClick={() => handleClick(n)}
+                >
+                  <div style={{ minHeight: 64, padding: 16, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                      <div style={{ width: 6, height: 6, borderRadius: 3, marginTop: 6, flexShrink: 0, background: n.unread ? C.brand : 'transparent' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <div style={{ fontSize: 14, fontWeight: 400, color: C.text, lineHeight: 1.45, flex: 1 }}>{n.title}</div>
+                          <span style={{ fontSize: 12, color: C.textTer, flexShrink: 0 }}>{n.time}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: n.detained ? C.danger : C.textSec, marginTop: 4, lineHeight: 1.45 }}>{n.sub}</div>
+                      </div>
+                    </div>
+                    {expandedId === n.id && n.detail && <div style={{ paddingLeft: 16, marginTop: 8, fontSize: 13, color: C.textSec, lineHeight: 1.55 }}>{n.detail}</div>}
+                  </div>
+                </SwipeableNotificationRow>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: C.textTer }}>仅显示近1个月的通知</div>
+      </div>
+    </div>
+  );
+}
+
+function ExampleLibraryScreen({ items, onBack }) {
+  const [cat, setCat] = React.useState('环境设施');
+  const list = items.filter(it => it.cat === cat);
+  const tabStyle = (active) => ({
+    flex: 1, textAlign: 'center', padding: '10px 0', fontSize: 14, fontWeight: active ? 600 : 400,
+    color: active ? C.brand : C.textSec, cursor: 'pointer', borderBottom: active ? `2px solid ${C.brand}` : '2px solid transparent', fontFamily: FONT,
+  });
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden' }}>
+      <TopBar title="非标问题示例库" onBack={onBack} />
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ margin: '10px 16px 0', padding: '10px 12px', background: C.brandSoft, borderRadius: 8, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <span style={{ fontSize: 14, color: C.brand, lineHeight: 1.2, flexShrink: 0 }}>ⓘ</span>
+          <span style={{ fontSize: 13, color: C.brand, lineHeight: 1.55 }}>以下场景属于正常现象，巡检时无需上报</span>
+        </div>
+        <div style={{ display: 'flex', background: C.surface, marginTop: 10, borderBottom: `0.5px solid ${C.line}` }}>
+          {EXAMPLE_CATS.map(c => <div key={c} style={tabStyle(cat === c)} onClick={() => setCat(c)}>{c}</div>)}
+        </div>
+        <div style={{ margin: '10px 16px 16px', background: C.surface, borderRadius: 8, overflow: 'hidden' }}>
+          {list.map((it, i) => <NonStandardExampleCard key={it.id} item={it} isLast={i === list.length - 1} />)}
+          {list.length === 0 && <div style={{ padding: 48, textAlign: 'center', fontSize: 13, color: C.textTer }}>暂无示例</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── MeScreen + CalendarScreen ──────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function MeScreen({ onTabChange, badges, onOpenCalendar, onOpenReportedTickets, onOpenNotifications, onOpenAudit, isAdmin, auditPendingCount, notifyUnreadCount, monthlyReportCount = 24, dutyDaysCount = 5 }) {
+  const menuItems = [
+    ...(isAdmin ? [{ k: '不整改审核', badge: auditPendingCount > 0 ? auditPendingCount : null, onClick: onOpenAudit }] : []),
+    { k: '消息通知', d: notifyUnreadCount > 0 ? `${notifyUnreadCount} 条新` : '暂无新消息', badge: notifyUnreadCount > 0 ? notifyUnreadCount : null, onClick: onOpenNotifications },
+    { k: '巡检日历', d: '5月已排班', onClick: onOpenCalendar },
+    ...(isAdmin ? [{ k: '系统管理', d: '' }] : []),
+  ];
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden' }}>
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {/* 顶部 profile 区 */}
+        <div style={{ background: C.surface, padding: `${MAIN_TAB_TOP_PAD}px 16px 18px` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 28, background: C.brand, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 600, color: '#fff' }}>景</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{DUTY_QC_PROFILE.name}</div>
+              <div style={{ fontSize: 14, color: C.textSec, marginTop: 4, lineHeight: 1.35 }}>{formatRoleDeptLine(DUTY_QC_PROFILE.roleTitle, DUTY_QC_PROFILE.name)}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: C.textTer, lineHeight: 1.3, whiteSpace: 'nowrap' }}>{SCENIC_LABEL}</span>
+              <button style={{ fontSize: 12, color: C.textSec, background: C.surfaceAlt, border: 'none', cursor: 'pointer', fontFamily: FONT, padding: '6px 12px', borderRadius: 4, flexShrink: 0 }}>编辑</button>
+            </div>
+          </div>
+        </div>
+
+        {/* 本月数据 */}
+        <div style={{ background: C.surface, marginTop: 8, padding: '16px 16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+            <span style={{ fontSize: 13, color: C.textSec }}>本月巡检</span>
+            <span style={{ fontSize: 11, color: C.textTer, fontFamily: MONO }}>4月</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { v: monthlyReportCount, l: '上报工单', onClick: onOpenReportedTickets },
+              { v: dutyDaysCount, l: '值班天数', onClick: onOpenCalendar },
+            ].map((s) => (
+              <div key={s.l} onClick={s.onClick} style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 14px', borderRadius: 8, background: C.surfaceAlt, cursor: 'pointer',
+              }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 600, color: C.text, fontFamily: MONO, lineHeight: 1.1 }}>{s.v}</div>
+                  <div style={{ fontSize: 11, color: C.textTer, marginTop: 4 }}>{s.l}</div>
+                </div>
+                <svg width="6" height="11" viewBox="0 0 6 11" style={{ flexShrink: 0 }}><path d="M1 1l4 4.5L1 10" stroke={C.textTer} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 提醒条 — 极简 */}
+        <div style={{ background: C.surface, marginTop: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, borderLeft: `3px solid ${C.warn}` }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>明天五一假期前最后一个工作日</div>
+            <div style={{ fontSize: 11, color: C.textTer, marginTop: 2 }}>建议提前完成必查项 · {window.DATA.today}</div>
+          </div>
+        </div>
+
+        {/* 菜单列表 */}
+        <div style={{ background: C.surface, marginTop: 8 }}>
+          {menuItems.map((it, i, arr) => (
+            <React.Fragment key={it.k}>
+              <div onClick={it.onClick} style={{ display: 'flex', alignItems: 'center', minHeight: 52, padding: '0 16px', cursor: it.onClick ? 'pointer' : 'default' }}>
+                <div style={{ flex: 1, fontSize: 15, color: C.text }}>{it.k}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {it.d && <span style={{ fontSize: 13, color: C.textTer }}>{it.d}</span>}
+                  {it.badge != null && it.badge > 0 && (
+                    <span style={{ minWidth: 18, height: 18, padding: '0 6px', background: C.danger, color: '#fff', fontSize: 10, fontWeight: 600, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{it.badge}</span>
+                  )}
+                  <svg width="6" height="11" viewBox="0 0 6 11"><path d="M1 1l4 4.5L1 10" stroke={C.textTer} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+              </div>
+              {i < arr.length - 1 && <Hairline inset={16} />}
+            </React.Fragment>
+          ))}
+        </div>
+
+        <div style={{ height: 20 }} />
+      </div>
+      <BottomTabs active="me" onChange={onTabChange} badges={badges} />
+    </div>
+  );
+}
+
+function CalendarScreen({ onBack }) {
+  const user = (window.DATA.currentUser || CURRENT_USER).name;
+  const month = '2026年4月';
+  const today = 29;
+  const roster = ['李宛婷', '周莉', '杨诚', '方力', '张明', '景文峰', '苏桢'];
+  const calToday = '#2563EB';
+  const calMineBg = '#EFF6FF';
+  const calGrid = '#F3F4F6';
+  const calServiceGreen = C.success;
+  const calCellH = 62;
+  const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+
+  const weekdayIdx = (d) => (d + 1) % 7;
+  const weekLabel = (d) => '周' + WEEK_LABELS[weekdayIdx(d)];
+
+  const days = [];
+  for (let d = 1; d <= 30; d++) {
+    let qaManager = roster[(d * 2 + Math.floor(d / 5)) % roster.length];
+    let serviceManager = roster[(d * 3 + 1) % roster.length];
+    if (d === today) qaManager = user;
+    if (d === 14) serviceManager = user;
+    if (d % 7 === 0) serviceManager = qaManager;
+    days.push({ d, qaManager, serviceManager, isToday: d === today, isFuture: d > today });
+  }
+
+  const [selectedDay, setSelectedDay] = React.useState(today);
+  const selected = days.find(d => d.d === selectedDay) || days.find(d => d.isToday);
+
+  const isMyDuty = (day) => !day.isFuture && (day.qaManager === user || day.serviceManager === user);
+  const myDutyDays = days.filter(isMyDuty).length;
+
+  const getDayStyle = (day) => {
+    const mine = isMyDuty(day);
+    if (mine) {
+      return { bg: calMineBg, dateColor: calToday, dateWeight: 700 };
+    }
+    return { bg: '#fff', dateColor: day.isFuture ? '#9CA3AF' : '#374151', dateWeight: 500 };
+  };
+
+  // 4 字以上姓名会截断,符合预期(绝大多数为三字以内)
+  const renderDayNames = (day) => {
+    const qa = day.qaManager;
+    const svc = day.serviceManager;
+    if (qa && svc && qa === svc) {
+      return (
+        <div style={{ marginTop: 2, width: '100%' }}>
+          <div style={{
+            fontSize: 11, lineHeight: 1.3, textAlign: 'left', color: calToday,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{qa}</div>
+          <div style={{ fontSize: 10, lineHeight: 1.2, color: C.textTer, marginTop: 1 }}>质/服</div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ marginTop: 2, width: '100%' }}>
+        {qa && (
+          <div style={{
+            fontSize: 11, lineHeight: 1.3, textAlign: 'left', color: calToday,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{qa}</div>
+        )}
+        {svc && (
+          <div style={{
+            fontSize: 11, lineHeight: 1.3, textAlign: 'left', color: calServiceGreen,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: qa ? 2 : 0,
+          }}>{svc}</div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden' }}>
+      <TopBar title="巡检日历" onBack={onBack} />
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ background: C.surface, padding: '18px 16px 14px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 28, fontWeight: 600, color: C.text, fontFamily: MONO, lineHeight: 1, marginBottom: 6 }}>{myDutyDays}</div>
+            <div style={{ fontSize: 12, color: C.textTer }}>出勤天数</div>
+          </div>
+        </div>
+        <div style={{ background: C.surface, marginTop: 8, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `0.5px solid ${C.line}` }}>
+          <button style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer' }}>
+            <svg width="8" height="14" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke={C.text} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{month}</div>
+          <button style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer' }}>
+            <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke={C.text} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </div>
+        <div style={{ background: C.surface, padding: '10px 12px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 10 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.textTer }}>
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: calToday, flexShrink: 0 }} />
+              质检经理
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.textTer }}>
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: calServiceGreen, flexShrink: 0 }} />
+              服务经理
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 6 }}>
+            {WEEK_LABELS.map(w => (
+              <div key={w} style={{ textAlign: 'center', fontSize: 11, color: C.textTer, padding: '4px 0' }}>{w}</div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, background: calGrid }}>
+            {[null, null].map((_, i) => (
+              <div key={`e${i}`} style={{ minHeight: calCellH, background: '#fff' }} />
+            ))}
+            {days.map(day => {
+              const s = getDayStyle(day);
+              const isSelected = selectedDay === day.d;
+              return (
+                <div
+                  key={day.d}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedDay(day.d)}
+                  style={{
+                    minHeight: calCellH, display: 'flex', flexDirection: 'column', alignItems: 'stretch',
+                    padding: '4px 3px', background: s.bg, cursor: 'pointer',
+                    boxShadow: isSelected ? `inset 0 0 0 1.5px ${calToday}` : 'none',
+                  }}
+                >
+                  <div style={{
+                    fontSize: 12, fontWeight: s.dateWeight, fontFamily: MONO, lineHeight: 1,
+                    color: s.dateColor, alignSelf: 'flex-start',
+                  }}>{day.d}</div>
+                  {renderDayNames(day)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {selected && (
+          <div style={{ background: C.surface, marginTop: 8, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
+                4月{selected.d}日 · {weekLabel(selected.d)}
+              </span>
+              {selected.isToday && (
+                <span style={{
+                  fontSize: 10, fontWeight: 500, color: calToday, background: calMineBg,
+                  padding: '2px 6px', borderRadius: 4,
+                }}>今日</span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: C.text, lineHeight: 1.6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: calToday, flexShrink: 0 }} />
+              <span style={{ color: C.textTer, flexShrink: 0 }}>质检经理</span>
+              <span>{selected.qaManager}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: C.text, lineHeight: 1.6, marginTop: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: calServiceGreen, flexShrink: 0 }} />
+              <span style={{ color: C.textTer, flexShrink: 0 }}>服务经理</span>
+              <span>{selected.serviceManager}</span>
+            </div>
+          </div>
+        )}
+        <div style={{ height: 20 }} />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── 主路由 (App) ───────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function CalendarDevNotes() {
+  return (
+    <div style={{
+      maxWidth: 390, width: '100%', marginTop: 4, padding: '14px 18px',
+      background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8,
+      fontSize: 13, color: '#78350F', lineHeight: 1.75, textAlign: 'left', boxSizing: 'border-box',
+    }}>
+      <div style={{ fontWeight: 600, marginBottom: 8, color: '#92400E' }}>开发人员说明（原型外，不进入 App）</div>
+      <div style={{ fontWeight: 600, marginBottom: 6, color: '#92400E' }}>巡检日历 · 排班规则</div>
+      <ul style={{ margin: 0, paddingLeft: 18 }}>
+        <li style={{ marginBottom: 4 }}>月底排好下个月整月排班</li>
+        <li style={{ marginBottom: 4 }}>支持临时调整（换班）</li>
+        <li>排班表支持批量导入</li>
+      </ul>
+    </div>
+  );
+}
+
+function App() {
+  // route: 'home' | 'tickets' | 'dashboard' | 'me' | 'my-tickets' | 'notifications' | 'examples' | 'report' | 'ticket-detail' | 'calendar'
+  const [route, setRoute] = React.useState('home');
+  const [activeTicket, setActiveTicket] = React.useState(null);
+  const [tickets] = React.useState(TICKETS);
+  const [taskStates, setTaskStates] = React.useState(() => SECTIONS.map(s => Array(s.items.length).fill(null)));
+  const [reportSource, setReportSource] = React.useState(null);
+  const [ticketDetailFrom, setTicketDetailFrom] = React.useState(null);
+  const [notifications, setNotifications] = React.useState(NOTIFICATIONS);
+  const [ticketsListState, setTicketsListState] = React.useState(() => createTicketsListState('我部门的'));
+  const [myTicketsListState, setMyTicketsListState] = React.useState(() => createMyTicketsListState());
+  const [dashboardState, setDashboardState] = React.useState(() => createDashboardState());
+  const [notificationsListState, setNotificationsListState] = React.useState(() => createNotificationsListState());
+
+  const unreadNotifyCount = notifications.filter(n => n.unread).length;
+  const badges = { tickets: 7, me: unreadNotifyCount };
+
+  const markNotificationRead = (id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
+  };
+  const deleteNotification = (id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const openTicketFromRoute = (t, fromRoute) => {
+    setActiveTicket(t);
+    setTicketDetailFrom(fromRoute);
+    setRoute('ticket-detail');
+  };
+
+  const openTicketById = (ticketId) => {
+    const t = TICKETS.find(x => x.id === ticketId);
+    if (t) openTicketFromRoute(t, route);
+  };
+
+  const handleTabChange = (tab) => {
+    if (tab === 'tickets') setTicketsListState(createTicketsListState('我部门的'));
+    if (tab === 'dashboard') setDashboardState(createDashboardState());
+    setRoute(tab);
+  };
+
+  const openReport = (source) => {
+    setReportSource(source || null);
+    setRoute('report');
+  };
+
+  const closeReport = () => {
+    setReportSource(null);
+    setRoute('home');
+  };
+
+  const handleReportSubmit = () => {
+    if (reportSource && reportSource.sIdx != null) {
+      const { sIdx, iIdx } = reportSource;
+      setTaskStates(prev => {
+        const next = prev.map(s => [...s]);
+        next[sIdx][iIdx] = 'issue';
+        return next;
+      });
+    }
+    setReportSource(null);
+    setRoute('home');
+  };
+
+  let screen;
+  if (route === 'home') {
+    screen = <TodayTasksScreen onTabChange={handleTabChange}
+      onOpenReport={openReport} badges={badges} states={taskStates} setStates={setTaskStates} />;
+  } else if (route === 'tickets') {
+    screen = <TicketsScreen tickets={tickets}
+      listState={ticketsListState}
+      onListStateChange={setTicketsListState}
+      onTicketClick={(t) => openTicketFromRoute(t, 'tickets')}
+      onTabChange={handleTabChange} badges={badges} />;
+  } else if (route === 'dashboard') {
+    screen = <DashboardScreen
+      onTabChange={handleTabChange}
+      badges={badges}
+      listState={dashboardState}
+      onListStateChange={setDashboardState}
+      onTicketClick={(t) => openTicketFromRoute(t, 'dashboard')}
+      onDrillToTickets={(payload) => {
+        setTicketsListState(createTicketsListState(payload.scopeTab || '全部工单', {
+          statusFilter: payload.statusFilter ?? '全部',
+          deptFilter: payload.deptFilter ?? null,
+          timeRange: payload.timeRange ?? '全部',
+          q: payload.q ?? '',
+          scrollTop: payload.scrollTop ?? 0,
+        }));
+        setRoute('tickets');
+      }}
+    />;
+  } else if (route === 'me') {
+    screen = <MeScreen onTabChange={handleTabChange} badges={badges}
+      onOpenCalendar={() => setRoute('calendar')}
+      onOpenReportedTickets={() => { setTicketsListState(createTicketsListState('我上报的')); setRoute('tickets'); }}
+      onOpenNotifications={() => setRoute('notifications')}
+      isAdmin={false}
+      notifyUnreadCount={unreadNotifyCount} />;
+  } else if (route === 'my-tickets') {
+    screen = <MyTicketsScreen tickets={tickets} onBack={() => setRoute('me')}
+      listState={myTicketsListState}
+      onListStateChange={setMyTicketsListState}
+      onTicketClick={(t) => openTicketFromRoute(t, 'my-tickets')} />;
+  } else if (route === 'notifications') {
+    screen = <NotificationsScreen items={notifications} onBack={() => setRoute('me')}
+      listState={notificationsListState}
+      onListStateChange={setNotificationsListState}
+      onMarkRead={markNotificationRead}
+      onDelete={deleteNotification}
+      onOpenTicket={(id) => openTicketById(id)} />;
+  } else if (route === 'examples') {
+    screen = <ExampleLibraryScreen items={EXAMPLE_ITEMS} onBack={() => setRoute('me')} />;
+  } else if (route === 'report') {
+    screen = <ReportScreen sourceItem={reportSource} onBack={closeReport}
+      onSubmit={handleReportSubmit}
+      onViewTicket={(t) => openTicketFromRoute(t, 'report')} />;
+  } else if (route === 'ticket-detail') {
+    screen = <TicketDetail ticket={activeTicket} onBack={() => {
+      if (ticketDetailFrom === 'report') setRoute('report');
+      else if (ticketDetailFrom === 'dashboard') setRoute('dashboard');
+      else if (ticketDetailFrom === 'my-tickets') setRoute('my-tickets');
+      else if (ticketDetailFrom === 'notifications') setRoute('notifications');
+      else setRoute('tickets');
+    }} />;
+  } else if (route === 'calendar') {
+    screen = <CalendarScreen onBack={() => setRoute('me')} />;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+      <div style={{ fontSize: 13, color: '#888', letterSpacing: 0.5 }}>
+        AI 景区巡检 · 质检人员原型 · v4 高级清爽版
+      </div>
+      <Phone>{screen}</Phone>
+      {route === 'calendar' ? (
+        <CalendarDevNotes />
+      ) : (
+        <div style={{ fontSize: 11, color: '#bbb', textAlign: 'center', lineHeight: '18px', maxWidth: 360 }}>
+          非标问题示例库：易误报对照单页，对比图 + 四行说明，无需详情页
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
