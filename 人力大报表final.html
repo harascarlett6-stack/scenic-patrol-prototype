@@ -1,0 +1,649 @@
+<!DOCTYPE html><html class="light" lang="zh-CN" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>宋城集团人力资源数据中台</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#ffffff",
+                        "on-secondary-fixed": "#1f2937",
+                        "inverse-on-surface": "#f5f7fa",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#00b578",
+                        "outline": "#9ca3af",
+                        "primary-fixed": "#e8f8f0",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#34d399",
+                        "on-tertiary-fixed-variant": "#b45309",
+                        "secondary-fixed": "#eff6ff",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#ffffff",
+                        "secondary-container": "#e8f8f0",
+                        "inverse-surface": "#1f2937",
+                        "on-primary-fixed-variant": "#008f5f",
+                        "on-tertiary-fixed": "#92400e",
+                        "tertiary-fixed": "#fef3c7",
+                        "secondary-fixed-dim": "#dbeafe",
+                        "on-secondary": "#ffffff",
+                        "primary": "#00b578",
+                        "tertiary-fixed-dim": "#fde68a",
+                        "on-surface-variant": "#6b7280",
+                        "background": "#f5f7fa",
+                        "surface": "#ffffff",
+                        "on-tertiary-container": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#d1fae5",
+                        "surface-bright": "#ffffff",
+                        "surface-variant": "#e5e7eb",
+                        "inverse-primary": "#34d399",
+                        "surface-container-high": "#f3f4f6",
+                        "outline-variant": "#e5e7eb",
+                        "surface-tint": "#00b578",
+                        "tertiary-container": "#f59e0b",
+                        "surface-container-highest": "#e5e7eb",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#e5e7eb",
+                        "tertiary": "#8b5cf6",
+                        "on-background": "#1f2937",
+                        "on-surface": "#1f2937",
+                        "on-primary-fixed": "#00b578",
+                        "surface-container": "#f5f7fa",
+                        "on-secondary-fixed-variant": "#374151",
+                        "secondary": "#3b82f6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-page": "32px",
+                        "stack-md": "16px",
+                        "container-max-width": "1440px",
+                        "gutter": "24px",
+                        "stack-sm": "8px",
+                        "stack-lg": "24px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-md": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f5f7fa; color: #1f2937; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f3f4f6; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .chart-bar { transition: width 1s ease-in-out; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="fixed top-0 z-50 w-full bg-surface border-b border-outline-variant h-16 flex items-center px-margin-page justify-between max-w-full">
+<div class="flex items-center gap-stack-md">
+<span class="text-headline-md font-headline-md font-bold text-primary">宋城集团人力资源数据中台</span>
+</div>
+
+<div class="flex items-center gap-stack-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-opacity">refresh</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-opacity">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-opacity">settings</button>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-xs">AD</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 bg-surface-container-low border-r border-outline-variant py-stack-lg hidden lg:flex flex-col z-40"><div class="px-6 mb-stack-lg"><p class="text-body-lg font-body-lg font-bold text-on-surface">管理系统</p><p class="text-label-md font-label-md text-on-surface-variant">Management System</p></div><div class="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar"><a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all" href="#"><span class="material-symbols-outlined">dashboard</span><span class="font-label-md text-label-md">首页驾驶舱</span></a><div class="space-y-1"><button class="w-full flex items-center justify-between px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all"><div class="flex items-center gap-3"><span class="material-symbols-outlined">settings</span><span class="font-label-md text-label-md">运营管理</span></div><span class="material-symbols-outlined text-xs">expand_more</span></button></div><a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all" href="#"><span class="material-symbols-outlined">payments</span><span class="font-label-md text-label-md">财务管理</span></a><div class="space-y-1"><div class="flex items-center justify-between px-4 py-3 text-primary font-bold"><div class="flex items-center gap-3"><span class="material-symbols-outlined">groups</span><span class="font-label-md text-label-md">人力管理</span></div><span class="material-symbols-outlined text-xs">expand_less</span></div><div class="pl-8 space-y-1"><a class="flex items-center gap-3 px-4 py-2 bg-secondary-container text-on-secondary-container rounded-lg font-bold transition-all" href="#"><span class="font-label-md text-label-md">人力大报表</span></a><a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-primary transition-all" href="#"><span class="font-label-md text-label-md">管理周报</span></a><a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-primary transition-all" href="#"><span class="font-label-md text-label-md">演员绩效核算</span></a><a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-primary transition-all" href="#"><span class="font-label-md text-label-md">台账管理</span></a></div></div><div class="space-y-1"><button class="w-full flex items-center justify-between px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all"><div class="flex items-center gap-3"><span class="material-symbols-outlined">security</span><span class="font-label-md text-label-md">安全管理</span></div><span class="material-symbols-outlined text-xs">expand_more</span></button></div><a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all" href="#"><span class="material-symbols-outlined">electric_bolt</span><span class="font-label-md text-label-md">能耗管理</span></a></div><div class="px-4 border-t border-outline-variant pt-stack-md"><a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all" href="#"><span class="material-symbols-outlined">logout</span><span class="font-label-md text-label-md">退出登录</span></a></div></aside>
+<!-- Main Content Canvas -->
+<main class="lg:ml-64 pt-24 pb-12 px-margin-page max-w-container-max-width 2xl:max-w-[1800px] mx-auto space-y-stack-lg">
+<!-- Filter Toolbar -->
+<section class="glass-card bg-surface-container-lowest px-6 py-4 rounded-xl flex items-center justify-between gap-4">
+<div class="flex items-center gap-stack-md">
+<!-- Month Selector -->
+<div class="relative">
+<select id="monthSelect" class="appearance-none bg-surface-container-high border border-outline-variant text-on-surface font-label-md text-label-md font-bold rounded-lg pl-4 pr-9 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer">
+<option value="2025-10">2025年10月</option>
+<option value="2025-09">2025年9月</option>
+<option value="2025-08">2025年8月</option>
+<option value="2025-07">2025年7月</option>
+<option value="2025-06">2025年6月</option>
+<option value="2025-05">2025年5月</option>
+<option value="2025-04">2025年4月</option>
+<option value="2025-03">2025年3月</option>
+<option value="2025-02">2025年2月</option>
+<option value="2025-01">2025年1月</option>
+<option value="2024-12">2024年12月</option>
+<option value="2024-11">2024年11月</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">expand_more</span>
+</div>
+<!-- Company / Segment Selector -->
+<div class="relative">
+<select id="orgSelect" class="appearance-none bg-surface-container-high border border-outline-variant text-on-surface font-label-md text-label-md font-bold rounded-lg pl-4 pr-9 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer min-w-[180px]">
+<option value="all">上市板块（合计·20个主体）</option>
+<option value="hzsc">杭州宋城</option>
+<option value="xaqgq">西安千古情景区</option>
+<option value="shqgq">上海千古情景区</option>
+<option value="gdqgq">广东千古情景区</option>
+<option value="hzly">杭州乐园</option>
+<option value="ljqgq">丽江千古情景区</option>
+<option value="glqgq">桂林千古情景区</option>
+<option value="syqgq">三亚千古情景区</option>
+<option value="jzqgq">九寨千古情景区</option>
+<option value="zjjqgq">张家界千古情景区</option>
+<option value="jzcm">九寨藏谜</option>
+<option value="scsy">宋城实业</option>
+<option value="xtsc">西塘宋城</option>
+<option value="scyy">宋城演艺</option>
+<option value="dmqwl">独木桥网络</option>
+<option value="sckj">宋城科技</option>
+<option value="dmqlxs">独木桥旅行社</option>
+<option value="glyst">桂林艺术团</option>
+<option value="sclv">宋城旅游</option>
+<option value="sykj">三亚无边科技</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">expand_more</span>
+</div>
+</div>
+<span class="hidden md:flex items-center gap-1.5 text-label-md font-label-md text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span>NC系统同步于 2025-10-08 03:00</span>
+</section>
+<!-- Module 1: Core Metrics removed per business request -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter 2xl:gap-8">
+<!-- Module 2: Employment Type Analysis -->
+<section class="xl:col-span-5 glass-card bg-surface-container-lowest p-6 rounded-xl flex flex-col h-full">
+<h4 class="text-headline-md font-headline-md mb-6">用工类型分析</h4>
+<div class="flex flex-col md:flex-row items-center justify-around flex-grow gap-8">
+<div class="relative w-48 h-48">
+<svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+<circle cx="18" cy="18" fill="transparent" r="15.915" stroke="#e5e7eb" stroke-dasharray="100 0" stroke-width="3"></circle>
+<circle cx="18" cy="18" fill="transparent" r="15.915" stroke="#00b578" stroke-width="3" id="donutSeg1"></circle>
+<circle cx="18" cy="18" fill="transparent" r="15.915" stroke="#f59e0b" stroke-width="3" id="donutSeg2"></circle>
+<circle cx="18" cy="18" fill="transparent" r="15.915" stroke="#3b82f6" stroke-width="3" id="donutSeg3"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-label-md font-label-md text-on-surface-variant">总人数</span>
+<span class="text-headline-md font-headline-md font-bold" id="employmentTotal">3,439</span>
+</div>
+</div>
+<ul class="space-y-4 w-full max-w-xs" id="employmentLegend">
+<li class="flex items-center justify-between border-b border-surface-container-high pb-2">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-primary"></span>
+<span class="font-body-md text-body-md">正式员工</span>
+</div>
+<span class="font-label-md text-label-md font-bold">1,557 (45.27%)</span>
+</li>
+<li class="flex items-center justify-between border-b border-surface-container-high pb-2">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-tertiary-container"></span>
+<span class="font-body-md text-body-md">实习生</span>
+</div>
+<span class="font-label-md text-label-md font-bold">976 (28.38%)</span>
+</li>
+<li class="flex items-center justify-between border-b border-surface-container-high pb-2">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-secondary"></span>
+<span class="font-body-md text-body-md">劳务用工</span>
+</div>
+<span class="font-label-md text-label-md font-bold">906 (26.34%)</span>
+</li>
+</ul>
+</div>
+<p class="mt-4 text-label-md font-label-md text-on-surface-variant italic">数据含正式、实习、劳务</p>
+</section>
+<!-- Module 3: Personnel Distribution -->
+<section class="xl:col-span-7 glass-card bg-surface-container-lowest p-6 rounded-xl h-[450px] flex flex-col">
+<div class="flex items-center justify-between mb-4">
+<h4 class="text-headline-md font-headline-md" id="distributionTitle">各公司人员分布（上市板块·20个主体）</h4>
+<div class="flex items-center gap-2">
+<div class="flex gap-2">
+<button id="sortDescBtn" type="button" class="px-3 py-1 bg-primary text-on-primary text-label-md font-label-md rounded">降序</button>
+<button id="sortAscBtn" type="button" class="px-3 py-1 bg-surface-container-high text-on-surface-variant text-label-md font-label-md rounded hover:bg-outline-variant transition-colors">升序</button>
+</div>
+</div>
+</div>
+<div class="overflow-y-auto custom-scrollbar flex-grow pr-4 space-y-3"><div class="space-y-2" id="distributionList"></div></div>
+<p class="mt-4 text-label-md font-label-md text-on-surface-variant italic">数据含正式、实习、劳务</p>
+</section>
+</div>
+<!-- Module 4: Regular Employee Age Structure -->
+<section class="glass-card bg-surface-container-lowest p-8 rounded-xl">
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-stack-md">
+<div>
+<h4 class="text-headline-md font-headline-md">正式员工年龄结构</h4>
+<p class="text-body-md text-on-surface-variant">针对核心人才资产的年龄层级分布分析</p>
+</div>
+<div class="flex items-baseline gap-4 bg-primary-fixed text-on-primary-fixed px-6 py-4 rounded-xl border border-primary-container">
+<span class="text-label-md font-label-md uppercase font-bold">平均年龄 Average Age</span>
+<span class="text-display-lg font-display-lg leading-none" id="avgAgeValue">32</span>
+<span class="text-body-lg font-body-lg">岁</span>
+</div>
+</div>
+<div class="grid grid-cols-4 gap-4 h-64 items-end" id="ageChartGrid"></div>
+<p class="mt-8 text-label-md font-label-md text-on-surface-variant italic" id="ageFootnote">统计口径：仅正式员工1557人</p>
+</section>
+<!-- Module 5: Regular Employee Demographics -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-gutter 2xl:gap-8">
+<div class="glass-card bg-surface-container-lowest p-8 rounded-xl flex flex-col">
+<h4 class="text-headline-md font-headline-md mb-8">性别比例</h4>
+<div class="flex-1 flex flex-col items-center justify-center w-full">
+<div class="relative w-64 h-32 overflow-hidden shrink-0 mb-8">
+<!-- Half Donut -->
+<div class="absolute top-0 left-0 w-64 h-64 border-[32px] border-surface-container-high rounded-full"></div>
+<div class="absolute top-0 left-0 w-64 h-64 border-[32px] border-primary rounded-full" id="genderDonutMale" style="clip-path: inset(0 0 50% 43.42%);"></div>
+<div class="absolute top-0 left-0 w-64 h-64 border-[32px] border-tertiary-container rounded-full" id="genderDonutFemale" style="clip-path: inset(0 56.58% 50% 0);"></div>
+</div>
+<div class="flex items-center justify-between w-full px-2">
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 bg-tertiary-container rounded-sm shrink-0"></span>
+<span class="text-body-md font-medium whitespace-nowrap">女性 Female</span>
+</div>
+<span class="text-headline-md font-bold" id="genderFemaleCount">676</span>
+<span class="text-label-md text-on-surface-variant" id="genderFemalePct">43.42%</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 bg-primary rounded-sm shrink-0"></span>
+<span class="text-body-md font-medium whitespace-nowrap">男性 Male</span>
+</div>
+<span class="text-headline-md font-bold" id="genderMaleCount">881</span>
+<span class="text-label-md text-on-surface-variant" id="genderMalePct">56.58%</span>
+</div>
+</div>
+</div>
+<p class="mt-8 text-label-md font-label-md text-on-surface-variant italic" id="genderFootnote">统计口径：仅正式员工1557人</p>
+</div>
+<div class="glass-card bg-surface-container-lowest p-8 rounded-xl flex flex-col">
+<h4 class="text-headline-md font-headline-md mb-8">学历分布</h4>
+<div class="space-y-6 flex-grow" id="educationList"></div>
+<p class="mt-8 text-label-md font-label-md text-on-surface-variant italic" id="educationFootnote">统计口径：仅正式员工1557人</p>
+</div>
+</section>
+<!-- Module 6: Regular Employee Tenure -->
+<section class="glass-card bg-surface-container-lowest p-8 rounded-xl">
+<h4 class="text-headline-md font-headline-md mb-10">正式员工司龄分布</h4>
+<div class="grid grid-cols-5 gap-4 h-64 items-end" id="tenureChartGrid"></div>
+<p class="mt-8 text-label-md font-label-md text-on-surface-variant italic" id="tenureFootnote">统计口径：仅正式员工1557人</p>
+</section>
+</main>
+<footer class="lg:ml-64 bg-surface-container-high py-12 px-margin-page text-center">
+<p class="text-label-md font-label-md text-on-surface-variant">2025 宋城集团 版权所有</p>
+</footer>
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const ORG_DATA = {
+                all: {
+                    employment: {
+                        total: 3439,
+                        types: [
+                            { label: '正式员工', count: 1557, pct: 45.27, dotClass: 'bg-primary' },
+                            { label: '实习生', count: 976, pct: 28.38, dotClass: 'bg-tertiary-container' },
+                            { label: '劳务用工', count: 906, pct: 26.34, dotClass: 'bg-secondary' }
+                        ]
+                    },
+                    distribution: {
+                        title: '各公司人员分布（上市板块·20个主体）',
+                        items: [
+                            { name: '杭州宋城', count: 647 },
+                            { name: '西安千古情景区', count: 335 },
+                            { name: '上海千古情景区', count: 321 },
+                            { name: '广东千古情景区', count: 307 },
+                            { name: '杭州乐园', count: 302 },
+                            { name: '丽江千古情景区', count: 234 },
+                            { name: '桂林千古情景区', count: 229 },
+                            { name: '三亚千古情景区', count: 219 },
+                            { name: '九寨千古情景区', count: 162 },
+                            { name: '张家界千古情景区', count: 155 },
+                            { name: '九寨藏谜', count: 66 },
+                            { name: '宋城实业', count: 19 },
+                            { name: '西塘宋城', count: 4 },
+                            { name: '宋城演艺', count: 15 },
+                            { name: '独木桥网络', count: 9 },
+                            { name: '宋城科技', count: 7 },
+                            { name: '独木桥旅行社', count: 6 },
+                            { name: '桂林艺术团', count: 5 },
+                            { name: '宋城旅游', count: 3 },
+                            { name: '三亚无边科技', count: 2 }
+                        ]
+                    },
+                    age: {
+                        avgAge: 32,
+                        formalTotal: 1557,
+                        bands: [
+                            { label: '18-20岁', count: 25, pct: 1.61, barHeight: 3 },
+                            { label: '21-30岁', count: 775, pct: 49.78, barHeight: 100, primary: true },
+                            { label: '31-40岁', count: 450, pct: 28.90, barHeight: 58 },
+                            { label: '41岁及以上', count: 307, pct: 19.72, barHeight: 40 }
+                        ]
+                    },
+                    gender: {
+                        male: { count: 881, pct: 56.58 },
+                        female: { count: 676, pct: 43.42 },
+                        formalTotal: 1557
+                    },
+                    education: [
+                        { label: '硕士及以上 (Master+)', count: 31, pct: 1.99, barWidth: 2, secondary: false },
+                        { label: '本科 (Bachelor)', count: 574, pct: 36.87, barWidth: 37, secondary: false },
+                        { label: '大专 (Associate)', count: 559, pct: 35.90, barWidth: 36, secondary: false },
+                        { label: '高中/中专 (High School)', count: 299, pct: 19.20, barWidth: 19, secondary: true },
+                        { label: '初中及以下 (Other)', count: 94, pct: 6.04, barWidth: 6, secondary: true }
+                    ],
+                    tenure: {
+                        formalTotal: 1557,
+                        bands: [
+                            { label: '1年以下', count: 68, pct: 4.34, barHeight: 11 },
+                            { label: '1-5年', count: 400, pct: 25.51, barHeight: 67 },
+                            { label: '5-10年', count: 600, pct: 38.27, barHeight: 100, primary: true },
+                            { label: '10-20年', count: 300, pct: 19.13, barHeight: 50 },
+                            { label: '20年及以上', count: 200, pct: 12.76, barHeight: 33 }
+                        ]
+                    }
+                },
+                hzsc: {
+                    employment: {
+                        total: 647,
+                        types: [
+                            { label: '正式员工', count: 312, pct: 48.22, dotClass: 'bg-primary' },
+                            { label: '实习生', count: 185, pct: 28.59, dotClass: 'bg-tertiary-container' },
+                            { label: '劳务用工', count: 150, pct: 23.18, dotClass: 'bg-secondary' }
+                        ]
+                    },
+                    distribution: {
+                        title: '各部门人员分布（杭州宋城）',
+                        items: [
+                            { name: '演艺部', count: 186 },
+                            { name: '运营部', count: 124 },
+                            { name: '市场部', count: 89 },
+                            { name: '财务部', count: 45 },
+                            { name: '人力资源部', count: 38 },
+                            { name: '行政部', count: 32 },
+                            { name: '工程部', count: 28 },
+                            { name: '安保部', count: 25 },
+                            { name: '票务部', count: 22 },
+                            { name: '商品部', count: 18 },
+                            { name: '餐饮部', count: 15 },
+                            { name: '游客服务部', count: 15 }
+                        ]
+                    },
+                    age: {
+                        avgAge: 29,
+                        formalTotal: 312,
+                        bands: [
+                            { label: '18-20岁', count: 22, pct: 7.05, barHeight: 14 },
+                            { label: '21-30岁', count: 172, pct: 55.13, barHeight: 100, primary: true },
+                            { label: '31-40岁', count: 86, pct: 27.56, barHeight: 50 },
+                            { label: '41岁及以上', count: 32, pct: 10.26, barHeight: 19 }
+                        ]
+                    },
+                    gender: {
+                        male: { count: 178, pct: 57.05 },
+                        female: { count: 134, pct: 42.95 },
+                        formalTotal: 312
+                    },
+                    education: [
+                        { label: '硕士及以上 (Master+)', count: 8, pct: 2.56, barWidth: 3, secondary: false },
+                        { label: '本科 (Bachelor)', count: 118, pct: 37.82, barWidth: 38, secondary: false },
+                        { label: '大专 (Associate)', count: 112, pct: 35.90, barWidth: 36, secondary: false },
+                        { label: '高中/中专 (High School)', count: 52, pct: 16.67, barWidth: 17, secondary: true },
+                        { label: '初中及以下 (Other)', count: 22, pct: 7.05, barWidth: 7, secondary: true }
+                    ],
+                    tenure: {
+                        formalTotal: 312,
+                        bands: [
+                            { label: '1年以下', count: 42, pct: 13.46, barHeight: 35 },
+                            { label: '1-5年', count: 98, pct: 31.41, barHeight: 82 },
+                            { label: '5-10年', count: 105, pct: 33.65, barHeight: 100, primary: true },
+                            { label: '10-20年', count: 48, pct: 15.38, barHeight: 46 },
+                            { label: '20年及以上', count: 19, pct: 6.10, barHeight: 18 }
+                        ]
+                    }
+                }
+            };
+
+            const orgSelect = document.getElementById('orgSelect');
+            const distributionTitle = document.getElementById('distributionTitle');
+            const distributionList = document.getElementById('distributionList');
+            const sortDescBtn = document.getElementById('sortDescBtn');
+            const sortAscBtn = document.getElementById('sortAscBtn');
+            const employmentTotal = document.getElementById('employmentTotal');
+            const employmentLegend = document.getElementById('employmentLegend');
+            const donutSegs = [
+                document.getElementById('donutSeg1'),
+                document.getElementById('donutSeg2'),
+                document.getElementById('donutSeg3')
+            ];
+            const avgAgeValue = document.getElementById('avgAgeValue');
+            const ageChartGrid = document.getElementById('ageChartGrid');
+            const ageFootnote = document.getElementById('ageFootnote');
+            const genderMaleCount = document.getElementById('genderMaleCount');
+            const genderMalePct = document.getElementById('genderMalePct');
+            const genderFemaleCount = document.getElementById('genderFemaleCount');
+            const genderFemalePct = document.getElementById('genderFemalePct');
+            const genderDonutMale = document.getElementById('genderDonutMale');
+            const genderDonutFemale = document.getElementById('genderDonutFemale');
+            const genderFootnote = document.getElementById('genderFootnote');
+            const educationList = document.getElementById('educationList');
+            const educationFootnote = document.getElementById('educationFootnote');
+            const tenureChartGrid = document.getElementById('tenureChartGrid');
+            const tenureFootnote = document.getElementById('tenureFootnote');
+
+            let currentOrg = 'all';
+            let distributionSort = 'desc';
+
+            function formatNumber(num) {
+                return num.toLocaleString('en-US');
+            }
+
+            function formatPct(pct) {
+                return pct.toFixed(2);
+            }
+
+            function getOrgData(orgKey) {
+                return ORG_DATA[orgKey === 'hzsc' ? 'hzsc' : 'all'];
+            }
+
+            function updateDonutChart(types) {
+                let offset = 0;
+                types.forEach((type, index) => {
+                    const seg = donutSegs[index];
+                    if (!seg) return;
+                    const pct = type.pct;
+                    seg.setAttribute('stroke-dasharray', `${pct} ${100 - pct}`);
+                    seg.setAttribute('stroke-dashoffset', `-${offset}`);
+                    offset += pct;
+                });
+            }
+
+            function renderEmployment(data) {
+                employmentTotal.textContent = formatNumber(data.total);
+                updateDonutChart(data.types);
+                employmentLegend.innerHTML = data.types.map(type => `
+                    <li class="flex items-center justify-between border-b border-surface-container-high pb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full ${type.dotClass}"></span>
+                            <span class="font-body-md text-body-md">${type.label}</span>
+                        </div>
+                        <span class="font-label-md text-label-md font-bold">${formatNumber(type.count)} (${formatPct(type.pct)}%)</span>
+                    </li>
+                `).join('');
+            }
+
+            function animateChartBars(container) {
+                container.querySelectorAll('.chart-bar').forEach(bar => {
+                    const targetWidth = bar.style.width;
+                    bar.style.width = '0';
+                    requestAnimationFrame(() => {
+                        setTimeout(() => {
+                            bar.style.width = targetWidth;
+                        }, 50);
+                    });
+                });
+            }
+
+            function getDistributionBarColor(count, minCount, maxCount) {
+                const light = { r: 0x34, g: 0xd3, b: 0x99 };
+                const dark = { r: 0x00, g: 0xb5, b: 0x78 };
+                const t = maxCount === minCount ? 1 : (count - minCount) / (maxCount - minCount);
+                const r = Math.round(light.r + (dark.r - light.r) * t);
+                const g = Math.round(light.g + (dark.g - light.g) * t);
+                const b = Math.round(light.b + (dark.b - light.b) * t);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            function renderDistribution(animate) {
+                const data = getOrgData(currentOrg).distribution;
+                distributionTitle.textContent = data.title;
+                const sorted = [...data.items].sort((a, b) =>
+                    distributionSort === 'desc' ? b.count - a.count : a.count - b.count
+                );
+                const maxCount = Math.max(...sorted.map(item => item.count), 1);
+                const minCount = Math.min(...sorted.map(item => item.count));
+                distributionList.innerHTML = sorted.map(item => {
+                    const width = Math.max((item.count / maxCount) * 100, item.count > 0 ? 1 : 0);
+                    const barColor = getDistributionBarColor(item.count, minCount, maxCount);
+                    return `
+                        <div class="flex items-center justify-between">
+                            <span class="text-body-md font-body-md w-32 truncate">${item.name}</span>
+                            <div class="flex-1 mx-4 bg-surface-container-high h-4 rounded-full overflow-hidden">
+                                <div class="h-full chart-bar" style="width: ${width}%; background-color: ${barColor};"></div>
+                            </div>
+                            <span class="text-label-md font-label-md font-bold w-12 text-right">${item.count}</span>
+                        </div>
+                    `;
+                }).join('');
+                if (animate) animateChartBars(distributionList);
+            }
+
+            function renderAgeChart(data) {
+                avgAgeValue.textContent = data.avgAge;
+                ageFootnote.textContent = `统计口径：仅正式员工${data.formalTotal}人`;
+                ageChartGrid.innerHTML = data.bands.map(band => {
+                    const barClass = band.primary ? 'bg-primary' : 'bg-primary-container';
+                    return `
+                        <div class="group flex flex-col items-center">
+                            <span class="mb-2 text-label-md font-label-md font-bold">${formatPct(band.pct)}%</span>
+                            <div class="w-full h-48 bg-surface-container-high rounded-t-lg relative overflow-hidden">
+                                <div class="absolute bottom-0 w-full ${barClass} rounded-t-lg" style="height: ${band.barHeight}%;"></div>
+                            </div>
+                            <p class="mt-4 font-label-md text-label-md">${band.label}</p>
+                            <p class="text-body-md font-bold">${band.count}人</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            function renderGender(data) {
+                genderMaleCount.textContent = data.male.count;
+                genderMalePct.textContent = `${formatPct(data.male.pct)}%`;
+                genderFemaleCount.textContent = data.female.count;
+                genderFemalePct.textContent = `${formatPct(data.female.pct)}%`;
+                genderDonutMale.style.clipPath = `inset(0 0 50% ${formatPct(data.female.pct)}%)`;
+                genderDonutFemale.style.clipPath = `inset(0 ${formatPct(data.male.pct)}% 50% 0)`;
+                genderFootnote.textContent = `统计口径：仅正式员工${data.formalTotal}人`;
+            }
+
+            function renderEducation(items, formalTotal) {
+                educationFootnote.textContent = `统计口径：仅正式员工${formalTotal}人`;
+                educationList.innerHTML = items.map(item => {
+                    const barClass = item.secondary ? 'bg-secondary' : 'bg-primary';
+                    return `
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-label-md font-label-md">
+                                <span>${item.label}</span>
+                                <span class="font-bold">${item.count} / ${formatPct(item.pct)}%</span>
+                            </div>
+                            <div class="h-2 bg-surface-container-high rounded-full overflow-hidden">
+                                <div class="${barClass} h-full" style="width: ${item.barWidth}%;"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            function renderTenureChart(data) {
+                tenureFootnote.textContent = `统计口径：仅正式员工${data.formalTotal}人`;
+                tenureChartGrid.innerHTML = data.bands.map(band => {
+                    const barClass = band.primary ? 'bg-primary' : 'bg-primary-container';
+                    return `
+                        <div class="group flex flex-col items-center">
+                            <span class="mb-2 text-body-md font-bold">${formatPct(band.pct)}%</span>
+                            <div class="w-full h-48 bg-surface-container-high rounded-t-lg relative overflow-hidden">
+                                <div class="absolute bottom-0 w-full ${barClass} rounded-t-lg" style="height: ${band.barHeight}%;"></div>
+                            </div>
+                            <p class="mt-4 font-label-md text-label-md">${band.label}</p>
+                            <p class="text-label-md font-label-md font-bold">${band.count}人</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            function updateSortButtons() {
+                const activeClasses = ['bg-primary', 'text-on-primary'];
+                const inactiveClasses = ['bg-surface-container-high', 'text-on-surface-variant', 'hover:bg-outline-variant'];
+                [sortDescBtn, sortAscBtn].forEach(btn => {
+                    btn.classList.remove(...activeClasses, ...inactiveClasses);
+                });
+                if (distributionSort === 'desc') {
+                    sortDescBtn.classList.add(...activeClasses);
+                    sortAscBtn.classList.add(...inactiveClasses, 'transition-colors');
+                } else {
+                    sortAscBtn.classList.add(...activeClasses);
+                    sortDescBtn.classList.add(...inactiveClasses, 'transition-colors');
+                }
+            }
+
+            function renderOrg(orgKey, animateDistribution) {
+                currentOrg = orgKey === 'hzsc' ? 'hzsc' : 'all';
+                const data = getOrgData(currentOrg);
+                renderEmployment(data.employment);
+                renderDistribution(animateDistribution);
+                renderAgeChart(data.age);
+                renderGender(data.gender);
+                renderEducation(data.education, data.age.formalTotal);
+                renderTenureChart(data.tenure);
+            }
+
+            sortDescBtn.addEventListener('click', () => {
+                distributionSort = 'desc';
+                updateSortButtons();
+                renderDistribution(true);
+            });
+
+            sortAscBtn.addEventListener('click', () => {
+                distributionSort = 'asc';
+                updateSortButtons();
+                renderDistribution(true);
+            });
+
+            orgSelect.addEventListener('change', () => {
+                renderOrg(orgSelect.value, true);
+            });
+
+            updateSortButtons();
+            renderOrg('all', true);
+        });
+    </script>
+
+
+
+
+</body></html>
